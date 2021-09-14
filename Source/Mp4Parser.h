@@ -117,22 +117,41 @@ public:
 	uint32_t	SampleDescriptionId = 0;
 };
 
+class Sample_t
+{
+public:
+	uint64_t	PresentationTimeMs = 0;
+	uint64_t	DecodeTimeMs = 0;
+	uint64_t	DurationMs = 0;
+	bool		IsKeyframe = false;
+	uint64_t	DataPosition = 0;
+	uint64_t	DataFilePosition = 0;
+	uint64_t	DataSize = 0;
+};
+
 //	this is the actual mp4 decoder
 //	based heavily on https://github.com/NewChromantics/PopEngineCommon/blob/master/Mp4.js
 class Mp4Parser_t
 {
 public:
-	bool				Read(ReadBytesFunc_t ReadBytes);
+	bool						Read(ReadBytesFunc_t ReadBytes,std::function<void(const Sample_t&)> EnumNewSample);
 	
-	void				DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	void				DecodeAtom_Trak(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	void				DecodeAtom_Media(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	void				DecodeAtom_MediaInfo(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	void				DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	void						DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	void						DecodeAtom_Trak(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	void						DecodeAtom_Media(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	void						DecodeAtom_MediaInfo(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	std::vector<Sample_t>		DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<ChunkMeta_t>	DecodeAtom_ChunkMetas(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	std::vector<uint64_t>		DecodeAtom_ChunkOffsets(Atom_t* ChunkOffsets32Atom,Atom_t* ChunkOffsets64Atom,ReadBytesFunc_t ReadBytes);
+	std::vector<uint64_t>		DecodeAtom_SampleSizes(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	std::vector<bool>			DecodeAtom_SampleKeyframes(Atom_t* pAtom,int SampleCount,ReadBytesFunc_t ReadBytes);
+	std::vector<uint64_t>		DecodeAtom_SampleDurations(Atom_t* pAtom,int SampleCount,int Default,ReadBytesFunc_t ReadBytes);
+	
+	void						OnSamples(std::vector<Sample_t>& NewSamples);
 	
 public:
-	uint64_t			mFilePosition = 0;
+	uint64_t				mFilePosition = 0;
 	
-	std::vector<Atom_t>	mDatAtoms;	//	hold onto mdat in case they appear before moof/moovs
+	std::vector<Sample_t>	mNewSamples;
+	std::vector<Atom_t>		mDatAtoms;	//	hold onto mdat in case they appear before moof/moovs
 };

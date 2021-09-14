@@ -18,10 +18,13 @@ namespace PopMp4
 	TDecoder&	GetDecoder(int Instance);
 }
 
-class PopMp4::TSample
+class PopMp4::TSample : public Sample_t
 {
 public:
-	uint64_t				mTimestamp = 0;
+	TSample(const Sample_t& Sample) :
+		Sample_t	( Sample )
+	{
+	}
 	uint16_t				mStream = 0;
 	std::vector<uint8_t>	mData;
 };
@@ -169,8 +172,15 @@ bool PopMp4::TDecoder::DecodeNext()
 		return true;	
 	};
 	
+	auto OnNewSample = [&](const Sample_t& Sample)
+	{
+		std::lock_guard<std::mutex> Lock(mSamplesLock);
+		std::shared_ptr<TSample> pSample( new TSample(Sample) );
+		mSamples.push_back(pSample);
+	};
+
 	//	try and read next atom
-	return mParser.Read( ReadBytes );
+	return mParser.Read( ReadBytes, OnNewSample );
 }
 
 
@@ -223,7 +233,7 @@ extern "C" bool		PopMp4_PopSample(int Instance,uint64_t* Timestamp,uint16_t* Str
 	auto& NextSample = *pNextSample;
 	
 	*Stream = NextSample.mStream;
-	*Timestamp = NextSample.mTimestamp;
+	*Timestamp = NextSample.PresentationTimeMs;
 	
 	auto RealSize = NextSample.mData.size();
 	auto CopySize = std::min<uint64_t>( *DataBufferSize, RealSize );

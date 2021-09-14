@@ -207,7 +207,7 @@ BufferReader_t Atom_t::GetContentsReader(ReadBytesFunc_t ReadBytes)
 	return Reader;
 }
 
-bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes)
+bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(const Sample_t&)> EnumNewSample)
 {
 	try
 	{
@@ -221,6 +221,15 @@ bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes)
 		
 		std::cout << "Got atom " << Atom.Fourcc << std::endl;
 		mFilePosition += Atom.AtomSize();
+		
+		//	flush new samples
+		for ( int s=0;	s<mNewSamples.size();	s++ )
+		{
+			auto& Sample = mNewSamples[s];
+			EnumNewSample(Sample);
+		}
+		mNewSamples.resize(0);
+		
 		return true;
 	}
 	catch(TNeedMoreDataException& e)
@@ -267,7 +276,14 @@ void Mp4Parser_t::DecodeAtom_MediaInfo(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 	Atom.DecodeChildAtoms( ReadBytes );
 	//	js is
 	//	samples = DecodeAtom_SampleTable
-	DecodeAtom_SampleTable( Atom.GetChildAtomRef("stbl"), ReadBytes );
+	auto Samples = DecodeAtom_SampleTable( Atom.GetChildAtomRef("stbl"), ReadBytes );
+	
+	OnSamples(Samples);
+}
+
+void Mp4Parser_t::OnSamples(std::vector<Sample_t>& NewSamples)
+{
+	mNewSamples.insert( mNewSamples.end(), std::begin(NewSamples), std::end(NewSamples) );
 }
 
 
@@ -303,8 +319,189 @@ std::vector<ChunkMeta_t> Mp4Parser_t::DecodeAtom_ChunkMetas(Atom_t& Atom,ReadByt
 	return Metas;
 }
 
+std::vector<uint64_t> Mp4Parser_t::DecodeAtom_ChunkOffsets(Atom_t* ChunkOffsets32Atom,Atom_t* ChunkOffsets64Atom,ReadBytesFunc_t ReadBytes)
+{
+	Atom_t* pAtom = nullptr;
+	int OffsetSize = 0;
+	if ( ChunkOffsets32Atom )
+	{
+		OffsetSize = 32 / 8;
+		pAtom = ChunkOffsets32Atom;
+	}
+	else if ( ChunkOffsets64Atom )
+	{
+		OffsetSize = 64 / 8;
+		pAtom = ChunkOffsets64Atom;
+	}
+	else
+	{
+		throw std::runtime_error("Missing offset atom");
+	}
+	
+	auto& Atom = *pAtom;
+	auto Reader = Atom.GetContentsReader(ReadBytes);
+	auto Version = Reader.Read8();
+	auto Flags = Reader.Read24();
+	//var Version = AtomData[8];
+	//var Flags = Get24(AtomData[9], AtomData[10], AtomData[11]);
+	auto EntryCount = Reader.Read32();
+		
+	std::vector<uint64_t> Offsets;
+	for ( int e=0;	e<EntryCount;	e++ )
+	{
+		uint64_t Offset = 0;
+		if ( OffsetSize == 32/8 )
+			Offset = Reader.Read32();
+		if ( OffsetSize == 64/8 )
+			Offset = Reader.Read64();
+		Offsets.push_back(Offset);
+	}
 
-void Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+	return Offsets;
+}
+
+std::vector<uint64_t> Mp4Parser_t::DecodeAtom_SampleSizes(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+{
+	auto Reader = Atom.GetContentsReader(ReadBytes);
+	auto Version = Reader.Read8();
+	auto Flags = Reader.Read24();
+	auto SampleSize = Reader.Read32();
+	auto EntryCount = Reader.Read32();
+		
+	std::vector<uint64_t> Sizes;
+		
+	//	if size specified, they're all this size
+	if (SampleSize != 0)
+	{
+		for ( int i=0;	i<EntryCount;	i++)
+			Sizes.push_back(SampleSize);
+		return Sizes;
+	}
+		
+	//	each entry in the table is the size of a sample (and one chunk can have many samples)
+	//const SampleSizeStart = 20;	//	Reader.FilePosition
+	auto SampleSizeStart = Reader.mFilePosition;
+	if ( Reader.mFilePosition != SampleSizeStart )
+		throw std::runtime_error("Offset calculation has gone wrong");
+			
+	//	gr: docs don't say size, but this seems accurate...
+	//		but also sometimes doesnt SEEM to match the size in the header?
+	SampleSize = (Atom.ContentSize() - SampleSizeStart) / EntryCount;
+	//for ( let i = SampleSizeStart; i < AtomData.Length; i += SampleSize)
+	for ( int e=0;	e<EntryCount;	e++ )
+	{
+		if (SampleSize == 3)
+		{
+			auto Size = Reader.Read24();
+			//var Size = Get24(AtomData[i + 0], AtomData[i + 1], AtomData[i + 2]);
+			Sizes.push_back(Size);
+		}
+		else if (SampleSize == 4)
+		{
+			auto Size = Reader.Read32();
+			//var Size = Get32(AtomData[i + 0], AtomData[i + 1], AtomData[i + 2], AtomData[i + 3]);
+			Sizes.push_back(Size);
+		}
+		else
+			throw std::runtime_error(std::string("Unhandled sample size ")+std::to_string(SampleSize));
+	}
+	
+	return Sizes;
+}
+
+std::vector<bool> Mp4Parser_t::DecodeAtom_SampleKeyframes(Atom_t* pAtom,int SampleCount,ReadBytesFunc_t ReadBytes)
+{
+	//	keyframe index map
+	std::vector<bool> Keyframes;
+	//	init array
+	{
+		auto Default = pAtom ? false : true;
+		for ( int i=0;	i<SampleCount;	i++ )
+			Keyframes.push_back(Default);
+	}
+	if ( !pAtom )
+		return Keyframes;
+	
+	auto& Atom = *pAtom;
+	auto Reader = Atom.GetContentsReader(ReadBytes);
+	auto Version = Reader.Read8();
+	auto Flags = Reader.Read24();
+	auto EntryCount = Reader.Read32();
+	
+	if ( EntryCount == 0 )
+		return Keyframes;
+		
+	//	gr: docs don't say size, but this seems accurate...
+	auto IndexSize = (Atom.ContentSize() - Reader.mFilePosition) / EntryCount;
+	for ( int e=0;	e<EntryCount;	e++ )
+	{
+		int SampleIndex;
+		if ( IndexSize == 3 )
+		{
+			SampleIndex = Reader.Read24();
+		}
+		else if ( IndexSize == 4 )
+		{
+			SampleIndex = Reader.Read32();
+		}
+		else
+			throw std::runtime_error( std::string("Unhandled index size ") + std::to_string(IndexSize) );
+		
+		//	gr: indexes start at 1
+		SampleIndex--;
+		Keyframes[SampleIndex] = true;
+	}
+	return Keyframes;
+}
+
+
+std::vector<uint64_t> Mp4Parser_t::DecodeAtom_SampleDurations(Atom_t* pAtom,int SampleCount,int Default,ReadBytesFunc_t ReadBytes)
+{
+	std::vector<uint64_t> Durations;
+	if ( !pAtom )
+	{
+		if ( Default == -1 )
+			throw std::runtime_error("No atom and no default to get sample durations from");
+		
+		for ( int e=0;	e<SampleCount;	e++ )
+			Durations.push_back(Default);
+		return Durations;
+	}
+	
+	auto& Atom = *pAtom;
+	auto Reader = Atom.GetContentsReader(ReadBytes);
+	auto Version = Reader.Read8();
+	auto Flags = Reader.Read24();
+	auto EntryCount = Reader.Read32();
+	
+	while ( Reader.BytesRemaining() )
+	{
+		auto SubSampleCount = Reader.Read32();
+		auto SubSampleDuration = Reader.Read32();
+		
+		for ( int s=0;	s<SubSampleCount;	s++ )
+			Durations.push_back(SubSampleDuration);
+	}
+	
+	if ( Durations.size() != EntryCount )
+	{
+		//	gr: for some reason, EntryCount is often 1, but there are more samples
+		//	throw `Durations extracted doesn't match entry count`
+	}
+	
+	if ( Durations.size() != SampleCount )
+	{
+		std::stringstream Error;
+		Error << "Durations Extracted(" << Durations.size() << ") don't match sample count(" << SampleCount << ") EntryCount=" << EntryCount;
+		throw std::runtime_error(Error.str());
+	}
+		
+	return Durations;
+
+}
+
+
+std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 	
@@ -327,47 +524,46 @@ void Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 		throw std::runtime_error("Track missing time-to-sample table atom");
 	
 	auto PackedChunkMetas = DecodeAtom_ChunkMetas(*SampleToChunkAtom,ReadBytes);
-	/*	const ChunkOffsets = await this.DecodeAtom_ChunkOffsets( ChunkOffsets32Atom, ChunkOffsets64Atom );
-		const SampleSizes = await this.DecodeAtom_SampleSizes(SampleSizesAtom);
-		const SampleKeyframes = await this.DecodeAtom_SampleKeyframes(SyncSamplesAtom, SampleSizes.length);
-		const SampleDurations = await this.DecodeAtom_SampleDurations( SampleDecodeDurationsAtom, SampleSizes.length);
-		const SamplePresentationTimeOffsets = await this.DecodeAtom_SampleDurations(SamplePresentationTimeOffsetsAtom, SampleSizes.length, 0 );
-		
-		//	durations start at zero (proper time must come from somewhere else!) and just count up over durations
-		const SampleDecodeTimes = [];//new int[SampleSizes.Count];
-		for ( let i=0;	i<SampleSizes.length;	i++ )
-		{
-			const LastDuration = (i == 0) ? 0 : SampleDurations[i - 1];
-			const LastTime = (i == 0) ? 0 : SampleDecodeTimes[i - 1];
-			const DecodeTime = LastTime + LastDuration;
-			SampleDecodeTimes.push( DecodeTime );
-		}
+	auto ChunkOffsets = DecodeAtom_ChunkOffsets( ChunkOffsets32Atom, ChunkOffsets64Atom, ReadBytes );
+	auto SampleSizes = DecodeAtom_SampleSizes( *SampleSizesAtom, ReadBytes );
+	auto SampleKeyframes = DecodeAtom_SampleKeyframes(SyncSamplesAtom, SampleSizes.size(), ReadBytes );
+	auto SampleDurations = DecodeAtom_SampleDurations( SampleDecodeDurationsAtom, SampleSizes.size(), -1, ReadBytes );
+	auto SamplePresentationTimeOffsets = DecodeAtom_SampleDurations(SamplePresentationTimeOffsetsAtom, SampleSizes.size(), 0, ReadBytes );
+	
+	//	durations start at zero (proper time must come from somewhere else!) and just count up over durations
+	std::vector<uint64_t> SampleDecodeTimes;//new int[SampleSizes.Count];
+	for ( int i=0;	i<SampleSizes.size();	i++ )
+	{
+		auto LastDuration = (i == 0) ? 0 : SampleDurations[i - 1];
+		auto LastTime = (i == 0) ? 0 : SampleDecodeTimes[i - 1];
+		auto DecodeTime = LastTime + LastDuration;
+		SampleDecodeTimes.push_back( DecodeTime );
+	}
 
-		//	pad (fill in gaps) the metas to fit offset information
-		//	https://sites.google.com/site/james2013notes/home/mp4-file-format
-		const ChunkMetas = [];
-		for ( let i=0;	i<PackedChunkMetas.length;	i++ )
-		{
-			const ChunkMeta = PackedChunkMetas[i];
-			//	first begins at 1. despite being an index...
-			const FirstChunk = ChunkMeta.FirstChunk - 1;
-			//	pad previous up to here
-			while ( ChunkMetas.length < FirstChunk )
-				ChunkMetas.push(ChunkMetas[ChunkMetas.length - 1]);
+	//	pad (fill in gaps) the metas to fit offset information
+	//	https://sites.google.com/site/james2013notes/home/mp4-file-format
+	std::vector<ChunkMeta_t> ChunkMetas;
+	for ( int i=0;	i<PackedChunkMetas.size();	i++ )
+	{
+		auto ChunkMeta = PackedChunkMetas[i];
+		//	first begins at 1. despite being an index...
+		auto FirstChunk = ChunkMeta.FirstChunk - 1;
+		//	pad previous up to here
+		while ( ChunkMetas.size() < FirstChunk )
+			ChunkMetas.push_back(ChunkMetas[ChunkMetas.size() - 1]);
 
-			ChunkMetas.push(ChunkMeta);
-		}
-		//	and pad the end
-		while (ChunkMetas.length < ChunkOffsets.length)
-			ChunkMetas.push(ChunkMetas[ChunkMetas.length - 1]);
+		ChunkMetas.push_back(ChunkMeta);
+	}
+	//	and pad the end
+	while (ChunkMetas.size() < ChunkOffsets.size())
+		ChunkMetas.push_back(ChunkMetas[ChunkMetas.size() - 1]);
 
-		/*
-		//	we're now expecting this to be here
-		var MdatStartPosition = MdatAtom.HasValue ? MdatAtom.Value.AtomDataFilePosition : (long?)null;
-* /
-		Pop.Debug(`todo; grab last mdat?`);
-		let MdatStartPosition = null;
-		/  *
+	/*
+	//	we're now expecting this to be here
+	var MdatStartPosition = MdatAtom.HasValue ? MdatAtom.Value.AtomDataFilePosition : (long?)null;
+*/
+	uint64_t* MdatStartPosition = nullptr;
+	/*
 		//	superfolous data
 		var Chunks = new List<TSample>();
 		long? MdatEnd = (MdatAtom.HasValue) ? (MdatAtom.Value.DataSize) : (long?)null;
@@ -384,52 +580,55 @@ void Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 			Chunk.DataSize = ChunkLength;
 			Chunks.Add(Chunk);
 		}
-		* /
-		const Samples = [];	//	array of Sample_t
-
-		const TimeScale = MovieHeader ? MovieHeader.TimeScale : 1;
-
-		function TimeToMs(TimeUnit)
-		{
-			//	to float
-			const Timef = TimeUnit * TimeScale;
-			const TimeMs = Timef * 1000.0;
-			return Math.floor(TimeMs);	//	round to int
-		}
-
-		let SampleIndex = 0;
-		for ( let i=0;	i<ChunkMetas.length;	i++)
-		{
-			const SampleMeta = ChunkMetas[i];
-			const ChunkIndex = i;
-			let ChunkFileOffset = ChunkOffsets[ChunkIndex];
-
-			for ( let s=0;	s<SampleMeta.SamplesPerChunk;	s++ )
-			{
-				const Sample = new Sample_t();
-
-				if ( MdatStartPosition !== null )
-					Sample.DataPosition = ChunkFileOffset - MdatStartPosition.Value;
-				else
-					Sample.DataFilePosition = ChunkFileOffset;
-
-				Sample.DataSize = SampleSizes[SampleIndex];
-				Sample.IsKeyframe = SampleKeyframes[SampleIndex];
-				Sample.DecodeTimeMs = TimeToMs( SampleDecodeTimes[SampleIndex] );
-				Sample.DurationMs = TimeToMs( SampleDurations[SampleIndex] );
-				Sample.PresentationTimeMs = TimeToMs( SampleDecodeTimes[SampleIndex] + SamplePresentationTimeOffsets[SampleIndex] );
-				Samples.push(Sample);
-
-				ChunkFileOffset += Sample.DataSize;
-				SampleIndex++;
-			}
-		}
-
-		if (SampleIndex != SampleSizes.length)
-			Pop.Warning(`Enumerated ${SampleIndex} samples, expected ${SampleSizes.length}`);
-
-		return Samples;
 		*/
+	std::vector<Sample_t> Samples;
+	
+	auto TimeScale = 1.0f;//MovieHeader ? MovieHeader.TimeScale : 1;
+
+	auto TimeToMs = [&](float TimeUnit) -> uint64_t
+	{
+		//	to float
+		auto Timef = TimeUnit * TimeScale;
+		auto TimeMs = Timef * 1000.0;
+		return floorf(TimeMs);	//	round to int
+	};
+
+	int SampleIndex = 0;
+	for ( int i=0;	i<ChunkMetas.size();	i++)
+	{
+		auto SampleMeta = ChunkMetas[i];
+		auto ChunkIndex = i;
+		auto ChunkFileOffset = ChunkOffsets[ChunkIndex];
+
+		for ( int s=0;	s<SampleMeta.SamplesPerChunk;	s++ )
+		{
+			Sample_t Sample;
+
+			if ( MdatStartPosition != nullptr )
+				Sample.DataPosition = ChunkFileOffset - (*MdatStartPosition);
+			else
+				Sample.DataFilePosition = ChunkFileOffset;
+
+			Sample.DataSize = SampleSizes[SampleIndex];
+			Sample.IsKeyframe = SampleKeyframes[SampleIndex];
+			Sample.DecodeTimeMs = TimeToMs( SampleDecodeTimes[SampleIndex] );
+			Sample.DurationMs = TimeToMs( SampleDurations[SampleIndex] );
+			Sample.PresentationTimeMs = TimeToMs( SampleDecodeTimes[SampleIndex] + SamplePresentationTimeOffsets[SampleIndex] );
+			Samples.push_back(Sample);
+
+			ChunkFileOffset += Sample.DataSize;
+			SampleIndex++;
+		}
+	}
+
+	if (SampleIndex != SampleSizes.size())
+	{
+		std::stringstream Error;
+		Error << "Enumerated " << SampleIndex << " samples, expected " << SampleSizes.size();
+		throw std::runtime_error(Error.str());
+	}
+
+	return Samples;
 }
 
 
