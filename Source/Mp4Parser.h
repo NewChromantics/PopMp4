@@ -34,7 +34,47 @@ public:
 };
 
 typedef std::function<bool(DataSpan_t&,size_t)> ReadBytesFunc_t;
+class Atom_t;
 
+class DataReader_t
+{
+public:
+	DataReader_t(uint64_t ExternalFilePosition,ReadBytesFunc_t ReadBytes) :
+		mReadBytes				( ReadBytes ),
+		mExternalFilePosition	( ExternalFilePosition )
+	{
+	}
+
+	Atom_t					ReadNextAtom();
+	uint8_t					Read8();
+	uint32_t				Read24();
+	uint32_t				Read32();
+	uint64_t				Read64();
+	std::vector<uint8_t>	ReadBytes(size_t Size);
+	std::string				ReadString(int Length);
+
+private:
+	//	calls read, throws if data missing, moves along file pos
+	void					Read(DataSpan_t& Buffer);
+	
+public:
+	uint64_t		mFilePosition = 0;
+	uint64_t		mExternalFilePosition = 0;
+	ReadBytesFunc_t	mReadBytes;
+};
+
+
+class BufferReader_t : public DataReader_t
+{
+public:
+	BufferReader_t(uint64_t ExternalFilePosition,std::vector<uint8_t> Contents);
+
+	bool	ReadBytes(DataSpan_t&,size_t);
+	int		BytesRemaining()	{	return mContents.size() - mFilePosition;	}
+	
+	//	need to make a copy atm
+	std::vector<uint8_t>	mContents;
+};
 
 class Atom_t
 {
@@ -46,10 +86,10 @@ public:
 	std::vector<Atom_t>	mChildAtoms;
 
 	void		DecodeChildAtoms(ReadBytesFunc_t ReadBytes);
-	void		DecodeChildAtoms(std::vector<uint8_t>& Contents);
 	
 	//	fetch contents on demand
 	std::vector<uint8_t>	GetContents(ReadBytesFunc_t ReadBytes);
+	BufferReader_t			GetContentsReader(ReadBytesFunc_t ReadBytes);
 	std::vector<Atom_t*>	GetChildAtoms(const std::string& MatchFourcc);
 	Atom_t&					GetChildAtomRef(const std::string& MatchFourcc);	//	 expect & match one-instance of this child atom	
 	Atom_t*					GetChildAtom(const std::string& MatchFourcc);	//	 expect & match one-instance of this child atom	
@@ -68,6 +108,15 @@ public:
 	
 };
 
+
+class ChunkMeta_t
+{
+public:
+	uint32_t	FirstChunk = 0;
+	uint32_t	SamplesPerChunk = 0;
+	uint32_t	SampleDescriptionId = 0;
+};
+
 //	this is the actual mp4 decoder
 //	based heavily on https://github.com/NewChromantics/PopEngineCommon/blob/master/Mp4.js
 class Mp4Parser_t
@@ -80,7 +129,8 @@ public:
 	void				DecodeAtom_Media(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	void				DecodeAtom_MediaInfo(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	void				DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-
+	std::vector<ChunkMeta_t>	DecodeAtom_ChunkMetas(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	
 public:
 	uint64_t			mFilePosition = 0;
 	

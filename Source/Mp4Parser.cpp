@@ -13,30 +13,6 @@ void swapEndian(T& buffer)
 }
 
 
-class DataReader_t
-{
-public:
-	DataReader_t(uint64_t ExternalFilePosition,ReadBytesFunc_t ReadBytes) :
-		mReadBytes				( ReadBytes ),
-		mExternalFilePosition	( ExternalFilePosition )
-	{
-	}
-
-	Atom_t					ReadNextAtom();
-	uint32_t				Read32();
-	uint64_t				Read64();
-	std::vector<uint8_t>	ReadBytes(size_t Size);
-	std::string				ReadString(int Length);
-
-private:
-	//	calls read, throws if data missing, moves along file pos
-	void					Read(DataSpan_t& Buffer);
-	
-public:
-	uint64_t		mFilePosition = 0;
-	uint64_t		mExternalFilePosition = 0;
-	ReadBytesFunc_t	mReadBytes;
-};
 
 
 Atom_t DataReader_t::ReadNextAtom()
@@ -60,6 +36,26 @@ Atom_t DataReader_t::ReadNextAtom()
 	mFilePosition += Atom.ContentSize();
 	
 	return Atom;
+}
+
+uint8_t DataReader_t::Read8()
+{
+	uint8_t Value = 0;
+	DataSpan_t Data( Value );
+	Read( Data );
+	return Value;
+}
+
+uint32_t DataReader_t::Read24()
+{
+	uint8_t abc[3];
+	DataSpan_t Data( abc );
+	Read( Data );
+	uint32_t abc32 = 0;
+	abc32 |= abc[0] << 16;
+	abc32 |= abc[1] << 8;
+	abc32 |= abc[2] << 0;
+	return abc32;
 }
 
 uint32_t DataReader_t::Read32()
@@ -167,30 +163,35 @@ std::vector<uint8_t> Atom_t::GetContents(ReadBytesFunc_t ReadBytes)
 	return Buffer;
 }
 
-void Atom_t::DecodeChildAtoms(ReadBytesFunc_t ReadBytes)
+
+
+BufferReader_t::BufferReader_t(uint64_t ExternalFilePosition,std::vector<uint8_t> Contents) :
+	DataReader_t	( ExternalFilePosition, std::bind(&BufferReader_t::ReadBytes, this, std::placeholders::_1, std::placeholders::_2) ),
+	mContents		( Contents )
 {
-	std::vector<uint8_t> Contents = GetContents(ReadBytes);
-	DecodeChildAtoms( Contents );
 }
 
-void Atom_t::DecodeChildAtoms(std::vector<uint8_t>& Contents)
+bool BufferReader_t::ReadBytes(DataSpan_t& Buffer,size_t FilePosition)
 {
-	auto ContentsFilePosition = this->ContentsFilePosition();
-	auto ReadBytes = [&](DataSpan_t& Buffer,uint64_t FilePosition)
+	auto ContentsPosition = FilePosition - mExternalFilePosition;
+	if ( ContentsPosition < 0 )
+		throw std::runtime_error("File position out of contents range");
+	if ( ContentsPosition >= mContents.size() )
+		throw std::runtime_error("File position out of contents range");
+	for ( int i=0;	i<Buffer.BufferSize;	i++ )
 	{
-		auto ContentsPosition = FilePosition - ContentsFilePosition;
-		if ( ContentsPosition < 0 )
-			throw std::runtime_error("File position out of contents range");
-		if ( ContentsPosition >= Contents.size() )
-			throw std::runtime_error("File position out of contents range");
-		for ( int i=0;	i<Buffer.BufferSize;	i++ )
-		{
-			Buffer.Buffer[i] = Contents[ContentsPosition+i];
-		}
-		return true;
-	};
-	DataReader_t Reader(ContentsFilePosition,ReadBytes);
-	while ( Reader.mFilePosition < Contents.size() )
+		Buffer.Buffer[i] = mContents[ContentsPosition+i];
+	}
+	return true;
+}
+
+
+void Atom_t::DecodeChildAtoms(ReadBytesFunc_t ReadBytes)
+{
+	//auto ContentsFilePosition = this->ContentsFilePosition();
+	//BufferReader_t Reader( ContentsFilePosition, Contents );
+	auto Reader = GetContentsReader(ReadBytes);
+	while ( Reader.BytesRemaining() )
 	{
 		auto Atom = Reader.ReadNextAtom();
 		mChildAtoms.push_back(Atom);
@@ -198,6 +199,13 @@ void Atom_t::DecodeChildAtoms(std::vector<uint8_t>& Contents)
 }
 
 
+BufferReader_t Atom_t::GetContentsReader(ReadBytesFunc_t ReadBytes)
+{
+	auto Contents = GetContents( ReadBytes );
+	auto ContentsFilePosition = this->ContentsFilePosition();
+	BufferReader_t Reader( ContentsFilePosition, Contents );
+	return Reader;
+}
 
 bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes)
 {
@@ -262,6 +270,40 @@ void Mp4Parser_t::DecodeAtom_MediaInfo(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 	DecodeAtom_SampleTable( Atom.GetChildAtomRef("stbl"), ReadBytes );
 }
 
+
+std::vector<ChunkMeta_t> Mp4Parser_t::DecodeAtom_ChunkMetas(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+{
+	std::vector<ChunkMeta_t> Metas;
+	
+	auto Reader = Atom.GetContentsReader(ReadBytes);
+	auto Flags = Reader.Read24();
+	auto Version = Reader.Read8();
+	auto EntryCount = Reader.Read32();
+	
+	auto MetaSize = 3 * 4;	//	3x32 bit
+	/*
+	const Offset = Reader.FilePosition;
+	for ( let i=Offset;	i<Atom.Data.length;	i+=MetaSize )
+	{
+		const ChunkData = Atom.Data.slice( i, i+MetaSize );
+		const Meta = new ChunkMeta_t(ChunkData);
+		Metas.Add(Meta);
+	}
+	*/
+	for ( int e=0;	e<EntryCount;	e++ )
+	{
+		ChunkMeta_t ChunkMeta;
+		ChunkMeta.FirstChunk = Reader.Read32();
+		ChunkMeta.SamplesPerChunk = Reader.Read32();
+		ChunkMeta.SampleDescriptionId = Reader.Read32();
+		Metas.push_back(ChunkMeta);
+	};
+	if (Metas.size() != EntryCount)
+		throw std::runtime_error("Chunk metas didn't match expected count");//`Expected ${EntryCount} chunk metas, got ${Metas.length}`;
+	return Metas;
+}
+
+
 void Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
@@ -283,9 +325,9 @@ void Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 		throw std::runtime_error("Track missing sample-to-chunk table atom");
 	if (SampleDecodeDurationsAtom == nullptr)
 		throw std::runtime_error("Track missing time-to-sample table atom");
-	/*
-	const PackedChunkMetas = await this.DecodeAtom_ChunkMetas(SampleToChunkAtom);
-		const ChunkOffsets = await this.DecodeAtom_ChunkOffsets( ChunkOffsets32Atom, ChunkOffsets64Atom );
+	
+	auto PackedChunkMetas = DecodeAtom_ChunkMetas(*SampleToChunkAtom,ReadBytes);
+	/*	const ChunkOffsets = await this.DecodeAtom_ChunkOffsets( ChunkOffsets32Atom, ChunkOffsets64Atom );
 		const SampleSizes = await this.DecodeAtom_SampleSizes(SampleSizesAtom);
 		const SampleKeyframes = await this.DecodeAtom_SampleKeyframes(SyncSamplesAtom, SampleSizes.length);
 		const SampleDurations = await this.DecodeAtom_SampleDurations( SampleDecodeDurationsAtom, SampleSizes.length);
