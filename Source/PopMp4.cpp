@@ -1,10 +1,10 @@
-#include "PopMp4.hpp"
+#include "PopMp4.h"
 #include <memory>
 #include <map>
 #include <mutex>
 #include <vector>
 #include <thread>
-#include "Mp4Parser.hpp"
+#include "Mp4Parser.h"
 #include <iostream>
 
 namespace PopMp4

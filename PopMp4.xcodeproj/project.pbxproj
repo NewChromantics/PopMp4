@@ -25,12 +25,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Mp4Parser.hpp; sourceTree = "<group>"; };
+		BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Mp4Parser.h; sourceTree = "<group>"; };
 		BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Mp4Parser.cpp; sourceTree = "<group>"; };
 		BFC7E7B026F0B6500032E0DB /* PopMp4 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PopMp4; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFC7E7B326F0B6500032E0DB /* TestApp.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = TestApp.cpp; sourceTree = "<group>"; };
 		BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PopMp4.cpp; sourceTree = "<group>"; };
-		BFC7E7BF26F0B68E0032E0DB /* PopMp4.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = PopMp4.hpp; sourceTree = "<group>"; };
+		BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PopMp4.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,9 +64,9 @@
 			isa = PBXGroup;
 			children = (
 				BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */,
-				BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.hpp */,
+				BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.h */,
 				BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */,
-				BFC7E7BF26F0B68E0032E0DB /* PopMp4.hpp */,
+				BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */,
 				BFC7E7B326F0B6500032E0DB /* TestApp.cpp */,
 			);
 			path = Source;
