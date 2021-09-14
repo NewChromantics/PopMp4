@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BFAFE14926F0CD8800A8F5C8 /* Mp4Parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */; };
 		BFC7E7B426F0B6500032E0DB /* TestApp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC7E7B326F0B6500032E0DB /* TestApp.cpp */; };
 		BFC7E7BD26F0B67F0032E0DB /* PopMp4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */; };
 /* End PBXBuildFile section */
@@ -24,6 +25,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Mp4Parser.hpp; sourceTree = "<group>"; };
+		BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Mp4Parser.cpp; sourceTree = "<group>"; };
 		BFC7E7B026F0B6500032E0DB /* PopMp4 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PopMp4; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFC7E7B326F0B6500032E0DB /* TestApp.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = TestApp.cpp; sourceTree = "<group>"; };
 		BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PopMp4.cpp; sourceTree = "<group>"; };
@@ -60,6 +63,8 @@
 		BFC7E7B226F0B6500032E0DB /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */,
+				BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.hpp */,
 				BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */,
 				BFC7E7BF26F0B68E0032E0DB /* PopMp4.hpp */,
 				BFC7E7B326F0B6500032E0DB /* TestApp.cpp */,
@@ -123,6 +128,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BFAFE14926F0CD8800A8F5C8 /* Mp4Parser.cpp in Sources */,
 				BFC7E7B426F0B6500032E0DB /* TestApp.cpp in Sources */,
 				BFC7E7BD26F0B67F0032E0DB /* PopMp4.cpp in Sources */,
 			);

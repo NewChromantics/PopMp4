@@ -4,6 +4,8 @@
 #include <mutex>
 #include <vector>
 #include <thread>
+#include "Mp4Parser.hpp"
+#include <iostream>
 
 namespace PopMp4
 {
@@ -45,7 +47,9 @@ private:
 public:
 	std::mutex					mPendingDataLock;
 	std::vector<uint8_t>		mPendingData;
+	size_t						mPendingDataFilePosition = 0;	//	pendingdata[0] is at this position in the file
 	bool						mHadEndOfFile = false;
+	Mp4Parser_t					mParser;					//	the actual data decoder
 
 	std::mutex					mSamplesLock;
 	std::vector<std::shared_ptr<TSample>>	mSamples;
@@ -124,8 +128,33 @@ std::shared_ptr<PopMp4::TSample> PopMp4::TDecoder::PopSample()
 
 bool PopMp4::TDecoder::DecodeNext()
 {
+	auto ReadBytes = [&](DataSpan_t& Buffer,size_t FilePosition)
+	{
+		std::lock_guard<std::mutex> Lock( mPendingDataLock );
+		
+		//	requesting data we've dropped!
+		if ( FilePosition < mPendingDataFilePosition )
+			throw std::runtime_error("Requesting data we've dropped");
+		
+		//	requesting data we don't have [yet]
+		auto PendingDataEnd = mPendingDataFilePosition + mPendingData.size();
+		if ( FilePosition + Buffer.BufferSize > PendingDataEnd )
+		{
+			std::cout << "Requesting data out of range" << std::endl;
+			return false;
+		}
+		
+		//	copy
+		for ( int i=0;	i<Buffer.BufferSize;	i++ )
+		{
+			int p = FilePosition - mPendingDataFilePosition + i;
+			Buffer.Buffer[i] = mPendingData[p];
+		}
+		return true;	
+	};
+	
 	//	try and read next atom
-	return false;	//	need more data
+	return mParser.Read( ReadBytes );
 }
 
 
