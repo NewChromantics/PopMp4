@@ -34,7 +34,7 @@ public:
 
 	void						PushData(const uint8_t* Data,size_t DataSize,bool EndOfFile);	//	std::span would be better, c++20
 	std::shared_ptr<TSample>	PopSample();
-	bool						HasEndOfFile()	{	return mHadEndOfFile && mPendingData.empty();	};	//	no more data to process
+	bool						HasParserFinished();	//	has parser parsed everything it's going to
 	
 private:
 	void						Thread();
@@ -82,15 +82,31 @@ void PopMp4::TDecoder::WakeThread()
 	//	notify conditional
 }
 
+bool PopMp4::TDecoder::HasParserFinished()
+{
+	if ( !mHadEndOfFile )
+		return false;
+		
+	auto PendingDataEnd = mPendingDataFilePosition + mPendingData.size();
+	if ( mParser.mFilePosition >= PendingDataEnd )
+		return true;
+		
+	return false;
+}
+
 void PopMp4::TDecoder::Thread()
 {
 	while ( mRunThread )
 	{
 		bool NeedMoreData = !DecodeNext();
 		
-		//	no more data to process, and none coming
-		if ( HasEndOfFile() )
-			break;
+		//	we've had our end of file...
+		if ( mHadEndOfFile )
+		{
+			//	and the parser has read all our data, so no more to decode
+			if ( HasParserFinished() )
+				break;
+		}
 
 		if ( NeedMoreData )
 		{
@@ -194,9 +210,11 @@ extern "C" bool		PopMp4_PopSample(int Instance,uint64_t* Timestamp,uint16_t* Str
 		
 	auto& Decoder = PopMp4::GetDecoder(Instance);
 	auto pNextSample = Decoder.PopSample();
+	
+	//	out of samples, and parser has finished. No more samples to come.
 	if ( !pNextSample )
 	{
-		*EndOfFile = Decoder.HasEndOfFile();	
+		*EndOfFile = Decoder.HasParserFinished();	
 		return false;
 	}
 	

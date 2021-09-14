@@ -35,7 +35,7 @@ void InputThread(int Instance,std::istream& Input)
 		auto BytesRead = Input.gcount();	//	should match size
 		auto* Buffer8 = reinterpret_cast<uint8_t*>(Buffer);
 		PopMp4_PushMp4Data( Instance, Buffer8, Size, eof );
-		std::cout << "read " << Size << std::endl;
+		//std::cout << "read " << Size << std::endl;
 	}
 	//	send EOF
 	PopMp4_PushMp4Data( Instance, nullptr, 0, true );
@@ -56,6 +56,8 @@ void OutputThread(int Instance,std::ostream& Output)
 		uint16_t Stream = 0;
 		if ( !PopMp4_PopSample( Instance, &Timestamp, &Stream, SampleBuffer, &SampleSize, &EndOfFile ) )
 		{
+			if ( EndOfFile )
+				continue;
 			//	nothing waiting
 			std::this_thread::sleep_for( std::chrono::milliseconds( 300 ) );
 			continue;
