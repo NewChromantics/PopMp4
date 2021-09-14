@@ -1,2 +1,5 @@
-
+#   ignore xcode user data
 xcuserdata/
+
+#   ignore test assets
+*.mp4
