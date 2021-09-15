@@ -37,11 +37,11 @@ public:
 
 	void						PushData(const uint8_t* Data,size_t DataSize,bool EndOfFile);	//	std::span would be better, c++20
 	std::shared_ptr<TSample>	PopSample();
-	bool						HasParserFinished();	//	has parser parsed everything it's going to
+	bool						HasDecoderThreadFinished()	{	return mDecoderThreadFinished;	}
 	
 private:
-	void						Thread();
-	void						WakeThread();
+	void						DecoderThread();
+	void						WakeDecoderThread();
 
 	//	this function is basically the only mp4-specific interface,
 	//	if we wanted to support more containers, do it here
@@ -59,6 +59,7 @@ public:
 	
 	bool						mRunThread = true;
 	std::thread					mDecodeThread;
+	bool						mDecoderThreadFinished = false;	//	will parse no more data
 };
 
 
@@ -66,7 +67,8 @@ PopMp4::TDecoder::TDecoder()
 {
 	auto Thread = [this](void*)
 	{
-		this->Thread();
+		this->DecoderThread();
+		mDecoderThreadFinished = true;
 	};
 	mDecodeThread = std::thread( Thread, this );
 }
@@ -75,29 +77,18 @@ PopMp4::TDecoder::~TDecoder()
 {
 	//	wait for thread to finish
 	mRunThread = false;
-	WakeThread();
+	WakeDecoderThread();
 	if (mDecodeThread.joinable())
 		mDecodeThread.join();
 }
 
-void PopMp4::TDecoder::WakeThread()
+void PopMp4::TDecoder::WakeDecoderThread()
 {
 	//	notify conditional
 }
 
-bool PopMp4::TDecoder::HasParserFinished()
-{
-	if ( !mHadEndOfFile )
-		return false;
-		
-	auto PendingDataEnd = mPendingDataFilePosition + mPendingData.size();
-	if ( mParser.mFilePosition >= PendingDataEnd )
-		return true;
-		
-	return false;
-}
 
-void PopMp4::TDecoder::Thread()
+void PopMp4::TDecoder::DecoderThread()
 {
 	while ( mRunThread )
 	{
@@ -107,7 +98,8 @@ void PopMp4::TDecoder::Thread()
 		if ( mHadEndOfFile )
 		{
 			//	and the parser has read all our data, so no more to decode
-			if ( HasParserFinished() )
+			auto PendingDataEnd = mPendingDataFilePosition + mPendingData.size();
+			if ( mParser.mFilePosition >= PendingDataEnd )
 				break;
 		}
 
@@ -131,7 +123,7 @@ void PopMp4::TDecoder::PushData(const uint8_t* Data,size_t DataSize,bool EndOfFi
 		if ( DataSize )
 			mPendingData.insert( mPendingData.end(), Data, Data+DataSize );
 	}
-	WakeThread();
+	WakeDecoderThread();
 }
 
 std::shared_ptr<PopMp4::TSample> PopMp4::TDecoder::PopSample()
@@ -231,10 +223,10 @@ extern "C" bool		PopMp4_PopSample(int Instance,bool* EndOfFile,uint8_t* DataBuff
 	auto& Decoder = PopMp4::GetDecoder(Instance);
 	auto pNextSample = Decoder.PopSample();
 	
-	//	out of samples, and parser has finished. No more samples to come.
+	//	out of samples, decoder thread has ended. No more samples to come.
 	if ( !pNextSample )
 	{
-		*EndOfFile = Decoder.HasParserFinished();	
+		*EndOfFile = Decoder.HasDecoderThreadFinished();	
 		return false;
 	}
 	
