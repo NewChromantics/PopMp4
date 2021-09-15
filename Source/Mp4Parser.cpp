@@ -2,6 +2,12 @@
 #include <iostream>
 #include <sstream>
 
+namespace std
+{
+	auto& Debug = std::cout;		//	debug to stout
+	//std::stringstream Debug;	//	absorb debug
+}
+
 //	https://stackoverflow.com/a/61146679/355753
 template <typename T>
 void swapEndian(T& buffer)
@@ -43,6 +49,15 @@ uint8_t DataReader_t::Read8()
 	uint8_t Value = 0;
 	DataSpan_t Data( Value );
 	Read( Data );
+	return Value;
+}
+
+uint16_t DataReader_t::Read16()
+{
+	uint16_t Value = 0;
+	DataSpan_t Data( Value );
+	Read( Data );
+	swapEndian(Value);
 	return Value;
 }
 
@@ -166,12 +181,12 @@ std::vector<uint8_t> Atom_t::GetContents(ReadBytesFunc_t ReadBytes)
 
 
 BufferReader_t::BufferReader_t(uint64_t ExternalFilePosition,std::vector<uint8_t> Contents) :
-	DataReader_t	( ExternalFilePosition, std::bind(&BufferReader_t::ReadBytes, this, std::placeholders::_1, std::placeholders::_2) ),
+	DataReader_t	( ExternalFilePosition, std::bind(&BufferReader_t::ReadContentBytes, this, std::placeholders::_1, std::placeholders::_2) ),
 	mContents		( Contents )
 {
 }
 
-bool BufferReader_t::ReadBytes(DataSpan_t& Buffer,size_t FilePosition)
+bool BufferReader_t::ReadContentBytes(DataSpan_t& Buffer,size_t FilePosition)
 {
 	auto ContentsPosition = FilePosition - mExternalFilePosition;
 	if ( ContentsPosition < 0 )
@@ -219,7 +234,7 @@ bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(const Sample
 		if ( Atom.Fourcc == "moov" )
 			DecodeAtom_Moov(Atom,ReadBytes);
 		
-		std::cout << "Got atom " << Atom.Fourcc << std::endl;
+		std::Debug << "Got atom " << Atom.Fourcc << std::endl;
 		mFilePosition += Atom.AtomSize();
 		
 		//	flush new samples
@@ -243,17 +258,130 @@ void Mp4Parser_t::DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 	Atom.DecodeChildAtoms( ReadBytes );
 	
 	//	decode movie header mvhd as it has timing meta
-	
+	MovieHeader_t MovieHeader;
+	auto MovieHeaderAtom = Atom.GetChildAtom("mvhd");
+	if ( MovieHeaderAtom )
+		MovieHeader = DecodeAtom_MovieHeader( *MovieHeaderAtom, ReadBytes);
+		
 	//	decode tracks
 	auto Traks = Atom.GetChildAtoms("trak");
 	for ( int t=0;	t<Traks.size();	t++ )
 	{
 		auto& Trak = *Traks[t];
-		DecodeAtom_Trak(Trak,ReadBytes);
+		DecodeAtom_Trak(Trak,MovieHeader,ReadBytes);
 	}
 }
 
-void Mp4Parser_t::DecodeAtom_Trak(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+uint64_t GetDateTimeFromSecondsSinceMidnightJan1st1904(uint64_t Timestamp)
+{
+	return 1234;	//	todo!
+}
+
+MovieHeader_t Mp4Parser_t::DecodeAtom_MovieHeader(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+{
+	auto Reader = Atom.GetContentsReader(ReadBytes);
+	
+	//	https://developer.apple.com/library/content/documentation/QuickTime/QTFF/art/qt_l_095.gif
+	auto Version = Reader.Read8();
+	auto Flags = Reader.Read24();
+		
+	//	hololens had what looked like 64 bit timestamps...
+	//	this is my working reference :)
+	//	https://github.com/macmade/MP4Parse/blob/master/source/MP4.MVHD.cpp#L50
+	uint64_t CreationTime=0,ModificationTime=0,Duration=0;	//	long
+	uint64_t TimeScale = 0;
+	if ( Version == 0)
+	{
+		CreationTime = Reader.Read32();
+		ModificationTime = Reader.Read32();
+		TimeScale = Reader.Read32();
+		Duration = Reader.Read32();
+	}
+	else if(Version == 1)
+	{
+		CreationTime = Reader.Read64();
+		ModificationTime = Reader.Read64();
+		TimeScale = Reader.Read32();
+		Duration = Reader.Read64();
+	}
+	else
+	{
+		std::stringstream Error;
+		Error << "Expected Version 0 or 1 for MVHD (Version=" << Version << ". If neccessary can probably continue without timing info!";
+		throw std::runtime_error(Error.str());
+	}
+		
+	auto PreferredRate = Reader.Read32();
+	//auto PreferredVolume = Reader.Read16();	//	8.8 fixed point volume
+	auto PreferredVolumeHi = Reader.Read8();
+	auto PreferredVolumeLo = Reader.Read8();
+	auto Reserved = Reader.ReadBytes(10);
+
+	auto Matrix_a = Reader.Read32();
+	auto Matrix_b = Reader.Read32();
+	auto Matrix_u = Reader.Read32();
+	auto Matrix_c = Reader.Read32();
+	auto Matrix_d = Reader.Read32();
+	auto Matrix_v = Reader.Read32();
+	auto Matrix_x = Reader.Read32();
+	auto Matrix_y = Reader.Read32();
+	auto Matrix_w = Reader.Read32();
+
+	auto PreviewTime = Reader.Read32();
+	auto PreviewDuration = Reader.Read32();
+	auto PosterTime = Reader.Read32();
+	auto SelectionTime = Reader.Read32();
+	auto SelectionDuration = Reader.Read32();
+	auto CurrentTime = Reader.Read32();
+	auto NextTrackId = Reader.Read32();
+
+	for ( int i=0;	i<Reserved.size();	i++ )
+	{
+		auto Zero = Reserved[i];
+		if (Zero != 0)
+			std::Debug << "Reserved value " << Zero << " is not zero" << std::endl;
+	}
+
+	//	actually a 3x3 matrix, but we make it 4x4 for unity
+	//	gr: do we need to transpose this? docs don't say row or column major :/
+	//	wierd element labels, right? spec uses them.
+/*
+		//	gr: matrixes arent simple
+		//		https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap4/qtff4.html#//apple_ref/doc/uid/TP40000939-CH206-18737
+		//	All values in the matrix are 32 - bit fixed-point numbers divided as 16.16, except for the { u, v, w}
+		//	column, which contains 32 - bit fixed-point numbers divided as 2.30.Figure 5 - 1 and Figure 5 - 2 depict how QuickTime uses matrices to transform displayed objects.
+		var a = Fixed1616ToFloat(Matrix_a);
+		var b = Fixed1616ToFloat(Matrix_b);
+		var u = Fixed230ToFloat(Matrix_u);
+		var c = Fixed1616ToFloat(Matrix_c);
+		var d = Fixed1616ToFloat(Matrix_d);
+		var v = Fixed230ToFloat(Matrix_v);
+		var x = Fixed1616ToFloat(Matrix_x);
+		var y = Fixed1616ToFloat(Matrix_y);
+		var w = Fixed230ToFloat(Matrix_w);
+		var MtxRow0 = new Vector4(a, b, u, 0);
+		var MtxRow1 = new Vector4(c, d, v, 0);
+		var MtxRow2 = new Vector4(x, y, w, 0);
+		var MtxRow3 = new Vector4(0, 0, 0, 1);
+*/
+	MovieHeader_t Header;
+	//var Header = new TMovieHeader();
+	Header.TimeScaleUnitsPerSecond = TimeScale; //	timescale is time units per second
+	//Header.VideoTransform = new Matrix4x4(MtxRow0, MtxRow1, MtxRow2, MtxRow3);
+
+	//	gr: this is supposed to be seconds
+	//	scale in CR sample is 1000(1 sec)
+	//	so we convert back to ms
+	Header.DurationMs = Header.TimeUnitsToMs( Duration );
+
+	Header.CreationTimeMs = GetDateTimeFromSecondsSinceMidnightJan1st1904(CreationTime);
+	Header.ModificationTimeMs = GetDateTimeFromSecondsSinceMidnightJan1st1904(ModificationTime);
+	Header.CreationTimeMs = GetDateTimeFromSecondsSinceMidnightJan1st1904(CreationTime);
+	Header.PreviewDurationMs = Header.TimeUnitsToMs( PreviewDuration );
+	return Header;
+}
+
+void Mp4Parser_t::DecodeAtom_Trak(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 
@@ -261,22 +389,52 @@ void Mp4Parser_t::DecodeAtom_Trak(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 	for ( int t=0;	t<Mdias.size();	t++ )
 	{
 		auto& Mdia = *Mdias[t];
-		DecodeAtom_Media(Mdia,ReadBytes);
+		DecodeAtom_Media(Mdia,MovieHeader,ReadBytes);
 	}
 }
 
-void Mp4Parser_t::DecodeAtom_Media(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+void Mp4Parser_t::DecodeAtom_Media(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
-	DecodeAtom_MediaInfo( Atom.GetChildAtomRef("minf"), ReadBytes );
+	
+	MediaHeader_t MediaHeader( MovieHeader );
+	auto Mdhd = Atom.GetChildAtom("mdhd");
+	if ( Mdhd )
+		MediaHeader = DecodeAtom_MediaHeader( *Mdhd, MovieHeader, ReadBytes );
+	
+	DecodeAtom_MediaInfo( Atom.GetChildAtomRef("minf"), MediaHeader, ReadBytes );
 }
 
-void Mp4Parser_t::DecodeAtom_MediaInfo(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+MediaHeader_t Mp4Parser_t::DecodeAtom_MediaHeader(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
+{
+	auto Reader = Atom.GetContentsReader(ReadBytes);
+	
+	auto Version = Reader.Read8();
+	auto Flags = Reader.Read24();
+	auto CreationTime = Reader.Read32();
+	auto ModificationTime = Reader.Read32();
+	auto TimeScale = Reader.Read32();
+	auto Duration = Reader.Read32();
+	auto Language = Reader.Read16();
+	auto Quality = Reader.Read16();
+
+	MediaHeader_t Header(MovieHeader);
+	Header.TimeScaleUnitsPerSecond = TimeScale;
+	//Header.Duration = new TimeSpan(0,0, (int)(Duration * Header.TimeScale));
+	Header.CreationTimeMs = GetDateTimeFromSecondsSinceMidnightJan1st1904(CreationTime);
+	Header.ModificationTimeMs = GetDateTimeFromSecondsSinceMidnightJan1st1904(ModificationTime);
+	Header.LanguageId = Language;
+	Header.Quality = Quality / static_cast<float>(1 << 16);
+	Header.DurationMs = Header.TimeUnitsToMs( Duration );
+	return Header;
+}
+
+void Mp4Parser_t::DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 	//	js is
 	//	samples = DecodeAtom_SampleTable
-	auto Samples = DecodeAtom_SampleTable( Atom.GetChildAtomRef("stbl"), ReadBytes );
+	auto Samples = DecodeAtom_SampleTable( Atom.GetChildAtomRef("stbl"), MovieHeader, ReadBytes );
 	
 	OnSamples(Samples);
 }
@@ -501,7 +659,7 @@ std::vector<uint64_t> Mp4Parser_t::DecodeAtom_SampleDurations(Atom_t* pAtom,int 
 }
 
 
-std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 	
@@ -582,16 +740,6 @@ std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytes
 		}
 		*/
 	std::vector<Sample_t> Samples;
-	
-	auto TimeScale = 1.0f;//MovieHeader ? MovieHeader.TimeScale : 1;
-
-	auto TimeToMs = [&](float TimeUnit) -> uint64_t
-	{
-		//	to float
-		auto Timef = TimeUnit * TimeScale;
-		auto TimeMs = Timef * 1000.0;
-		return floorf(TimeMs);	//	round to int
-	};
 
 	int SampleIndex = 0;
 	for ( int i=0;	i<ChunkMetas.size();	i++)
@@ -611,9 +759,9 @@ std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytes
 
 			Sample.DataSize = SampleSizes[SampleIndex];
 			Sample.IsKeyframe = SampleKeyframes[SampleIndex];
-			Sample.DecodeTimeMs = TimeToMs( SampleDecodeTimes[SampleIndex] );
-			Sample.DurationMs = TimeToMs( SampleDurations[SampleIndex] );
-			Sample.PresentationTimeMs = TimeToMs( SampleDecodeTimes[SampleIndex] + SamplePresentationTimeOffsets[SampleIndex] );
+			Sample.DecodeTimeMs = MovieHeader.TimeUnitsToMs( SampleDecodeTimes[SampleIndex] );
+			Sample.DurationMs = MovieHeader.TimeUnitsToMs( SampleDurations[SampleIndex] );
+			Sample.PresentationTimeMs = MovieHeader.TimeUnitsToMs( SampleDecodeTimes[SampleIndex] + SamplePresentationTimeOffsets[SampleIndex] );
 			Samples.push_back(Sample);
 
 			ChunkFileOffset += Sample.DataSize;

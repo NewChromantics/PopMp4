@@ -13,8 +13,6 @@ public:
 	virtual const char* what() const __noexcept { return "Invalid device name"; }
 };
 
-
-
 //	replace with std::span, but that's c++20
 class DataSpan_t
 {
@@ -51,6 +49,7 @@ public:
 
 	Atom_t					ReadNextAtom();
 	uint8_t					Read8();
+	uint16_t				Read16();
 	uint32_t				Read24();
 	uint32_t				Read32();
 	uint64_t				Read64();
@@ -73,7 +72,7 @@ class BufferReader_t : public DataReader_t
 public:
 	BufferReader_t(uint64_t ExternalFilePosition,std::vector<uint8_t> Contents);
 
-	bool	ReadBytes(DataSpan_t&,size_t);
+	bool	ReadContentBytes(DataSpan_t&,size_t);
 	int		BytesRemaining()	{	return mContents.size() - mFilePosition;	}
 	
 	//	need to make a copy atm
@@ -139,6 +138,50 @@ public:
 	int			MdatIndex = -1;
 };
 
+class MovieHeader_t	//	from mvhd atom
+{
+public:
+	uint64_t	TimeScaleUnitsPerSecond = 1000;	//	units per second
+	uint64_t	DurationMs = 0;
+	uint64_t	CreationTimeMs = 0;
+	uint64_t	ModificationTimeMs = 0;
+	uint64_t	PreviewDurationMs = 0;
+	
+	uint64_t	TimeUnitsToMs(uint64_t TimeUnit)
+	{
+		float Secs = TimeUnit / static_cast<float>(TimeScaleUnitsPerSecond);
+		float Ms = Secs * 1000.f;
+		return static_cast<uint64_t>( floorf(Ms) );
+	}
+};
+
+class MediaHeader_t
+{
+public:
+	MediaHeader_t(MovieHeader_t MovieHeader) :
+		MovieHeader	( MovieHeader )
+	{
+	}
+	
+	//	media can have it's own timescale
+	uint64_t		TimeScaleUnitsPerSecond = 1000;	//	units per second
+	uint64_t		CreationTimeMs = 0;
+	uint64_t		ModificationTimeMs = 0;
+	uint64_t		LanguageId = 0;
+	float			Quality = 1.f;
+	uint64_t		DurationMs = 0;
+	
+	//	gr: do we need to include the movie header?
+	MovieHeader_t	MovieHeader;
+	
+	uint64_t	TimeUnitsToMs(uint64_t TimeUnit)
+	{
+		float Secs = TimeUnit / static_cast<float>(TimeScaleUnitsPerSecond);
+		float Ms = Secs * 1000.f;
+		return static_cast<uint64_t>( floorf(Ms) );
+	}
+};
+
 //	this is the actual mp4 decoder
 //	based heavily on https://github.com/NewChromantics/PopEngineCommon/blob/master/Mp4.js
 class Mp4Parser_t
@@ -147,10 +190,12 @@ public:
 	bool						Read(ReadBytesFunc_t ReadBytes,std::function<void(const Sample_t&)> EnumNewSample);
 	
 	void						DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	void						DecodeAtom_Trak(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	void						DecodeAtom_Media(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	void						DecodeAtom_MediaInfo(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	std::vector<Sample_t>		DecodeAtom_SampleTable(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	MovieHeader_t				DecodeAtom_MovieHeader(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	void						DecodeAtom_Trak(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
+	void						DecodeAtom_Media(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
+	MediaHeader_t				DecodeAtom_MediaHeader(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
+	void						DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
+	std::vector<Sample_t>		DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
 	std::vector<ChunkMeta_t>	DecodeAtom_ChunkMetas(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<uint64_t>		DecodeAtom_ChunkOffsets(Atom_t* ChunkOffsets32Atom,Atom_t* ChunkOffsets64Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<uint64_t>		DecodeAtom_SampleSizes(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
