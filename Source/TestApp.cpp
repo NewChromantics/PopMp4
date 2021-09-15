@@ -68,14 +68,20 @@ void OutputThread(int Instance,std::ostream& Output)
 			continue;
 		}
 		
-		std::cout << "Got sample #" << SampleCounter;
-		std::cout << " PresentationTime=" << PresentationTimeMs;
-		std::cout << " DecodeTimeMs=" << DecodeTimeMs;
-		std::cout << " DurationMs=" << DurationMs;
-		std::cout << " IsKeyframe=" << IsKeyframe;
-		std::cout << " SampleSize=" << SampleSize;
-		std::cout << " Stream=" << Stream;
-		std::cout << std::endl;
+		std::stringstream Debug;
+		Debug << "Got sample #" << SampleCounter;
+		Debug << " PresentationTime=" << PresentationTimeMs;
+		Debug << " DecodeTimeMs=" << DecodeTimeMs;
+		Debug << " DurationMs=" << DurationMs;
+		Debug << " IsKeyframe=" << IsKeyframe;
+		Debug << " SampleSize=" << SampleSize;
+		Debug << " Stream=" << Stream;
+		
+		Debug << " Data[8]=";
+		for ( int i=0;	i<std::min( std::min<int>( SampleSize, std::size(SampleBuffer) ), 20 );	i++ )
+			Debug << " " << std::hex << ((SampleBuffer[i] < 0xa) ? "0":"") << (int)(SampleBuffer[i]);
+		
+		std::cout << Debug.str() << std::endl;
 		SampleCounter++;
 	}
 

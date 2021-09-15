@@ -47,7 +47,7 @@ private:
 	//	if we wanted to support more containers, do it here
 	bool						DecodeNext();	//	returns true if we decoded something, false if we need more data
 	
-public:
+private:
 	std::mutex					mPendingDataLock;
 	std::vector<uint8_t>		mPendingData;
 	size_t						mPendingDataFilePosition = 0;	//	pendingdata[0] is at this position in the file
