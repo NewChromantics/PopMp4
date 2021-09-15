@@ -42,19 +42,24 @@ void InputThread(int Instance,std::istream& Input)
 	std::cout << "finished input thread." << std::endl;
 }
 
+
 void OutputThread(int Instance,std::ostream& Output)
 {
 	std::cout << "starting output thread..." << std::endl;
 
 	bool EndOfFile = false;
+	int SampleCounter = 0;
 	while(!EndOfFile)
 	{
 		//	may want a blocking call, but for now we're assuming an engine is calling this basically once per frame
-		uint64_t Timestamp = 0;
+		uint64_t PresentationTimeMs = 0;
+		uint64_t DecodeTimeMs = 0;
+		uint64_t DurationMs = 0;
+		bool IsKeyframe = false;
 		uint8_t SampleBuffer[1024];
 		uint32_t SampleSize = std::size(SampleBuffer);
 		uint16_t Stream = 0;
-		if ( !PopMp4_PopSample( Instance, &Timestamp, &Stream, SampleBuffer, &SampleSize, &EndOfFile ) )
+		if ( !PopMp4_PopSample( Instance, &EndOfFile, SampleBuffer, &SampleSize, &PresentationTimeMs, &DecodeTimeMs, &Stream, &IsKeyframe, &DurationMs ) )
 		{
 			if ( EndOfFile )
 				continue;
@@ -63,7 +68,15 @@ void OutputThread(int Instance,std::ostream& Output)
 			continue;
 		}
 		
-		std::cout << "Got sample Timestamp=" << Timestamp << " Stream=" << Stream << " Size=" << SampleSize <<  std::endl;
+		std::cout << "Got sample #" << SampleCounter;
+		std::cout << " PresentationTime=" << PresentationTimeMs;
+		std::cout << " DecodeTimeMs=" << DecodeTimeMs;
+		std::cout << " DurationMs=" << DurationMs;
+		std::cout << " IsKeyframe=" << IsKeyframe;
+		std::cout << " SampleSize=" << SampleSize;
+		std::cout << " Stream=" << Stream;
+		std::cout << std::endl;
+		SampleCounter++;
 	}
 
 	std::cout << "finished output thread." << std::endl;

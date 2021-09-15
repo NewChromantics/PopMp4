@@ -28,7 +28,11 @@ public:
 		BufferSize	( sizeof(T) )
 	{
 	}
-	
+	DataSpan_t(std::vector<uint8_t>& Array) :
+		Buffer		( Array.data() ),
+		BufferSize	( Array.size() )
+	{
+	}
 	uint8_t*	Buffer = nullptr;
 	size_t		BufferSize = 0;
 };
@@ -124,9 +128,15 @@ public:
 	uint64_t	DecodeTimeMs = 0;
 	uint64_t	DurationMs = 0;
 	bool		IsKeyframe = false;
-	uint64_t	DataPosition = 0;
-	uint64_t	DataFilePosition = 0;
 	uint64_t	DataSize = 0;
+
+	//	data position is either file-relative (moov+mdat files, mdat may be before or after)
+	//	or relative to the next-mdat (probably fragmented)
+	//	file position will never be zero, so we can assume if it's 0, it's not been resolved yet
+	//	fragmented files can resolve mdat when they can
+	uint64_t	DataFilePosition = 0;
+	uint64_t	MdatPosition = 0;
+	int			MdatIndex = -1;
 };
 
 //	this is the actual mp4 decoder

@@ -605,7 +605,7 @@ std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,ReadBytes
 			Sample_t Sample;
 
 			if ( MdatStartPosition != nullptr )
-				Sample.DataPosition = ChunkFileOffset - (*MdatStartPosition);
+				Sample.MdatPosition = ChunkFileOffset - (*MdatStartPosition);
 			else
 				Sample.DataFilePosition = ChunkFileOffset;
 

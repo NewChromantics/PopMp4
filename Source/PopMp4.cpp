@@ -174,8 +174,17 @@ bool PopMp4::TDecoder::DecodeNext()
 	
 	auto OnNewSample = [&](const Sample_t& Sample)
 	{
-		std::lock_guard<std::mutex> Lock(mSamplesLock);
+		if ( Sample.DataFilePosition == 0 )
+			throw std::runtime_error("Sample hasn't resolved file position of data");
+
 		std::shared_ptr<TSample> pSample( new TSample(Sample) );
+		//	grab data
+		pSample->mData.resize( Sample.DataSize );
+		DataSpan_t Buffer( pSample->mData );
+		if ( !ReadBytes( Buffer, Sample.DataFilePosition ) )
+			throw std::runtime_error("Sample's data [position] hasn't been streamed in yet");
+		
+		std::lock_guard<std::mutex> Lock(mSamplesLock);
 		mSamples.push_back(pSample);
 	};
 
@@ -213,7 +222,8 @@ extern "C" bool		PopMp4_PushMp4Data(int Instance,const uint8_t* Data,uint32_t Da
 	return true;
 }
 
-extern "C" bool		PopMp4_PopSample(int Instance,uint64_t* Timestamp,uint16_t* Stream,uint8_t* DataBuffer,uint32_t* DataBufferSize,bool* EndOfFile)
+
+extern "C" bool		PopMp4_PopSample(int Instance,bool* EndOfFile,uint8_t* DataBuffer,uint32_t* DataBufferSize,uint64_t* PresentationTimeMs,uint64_t* DecodeTimeMs,uint16_t* Stream,bool* IsKeyframe,uint64_t* DurationMs)
 {
 	if ( !DataBuffer )
 		return false;
@@ -233,8 +243,11 @@ extern "C" bool		PopMp4_PopSample(int Instance,uint64_t* Timestamp,uint16_t* Str
 	auto& NextSample = *pNextSample;
 	
 	*Stream = NextSample.mStream;
-	*Timestamp = NextSample.PresentationTimeMs;
-	
+	*PresentationTimeMs = NextSample.PresentationTimeMs;
+	*DecodeTimeMs = NextSample.DecodeTimeMs;
+	*IsKeyframe = NextSample.IsKeyframe;
+	*DurationMs = NextSample.DurationMs;
+
 	auto RealSize = NextSample.mData.size();
 	auto CopySize = std::min<uint64_t>( *DataBufferSize, RealSize );
 	memcpy( DataBuffer, NextSample.mData.data(), CopySize );
