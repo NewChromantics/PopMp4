@@ -658,10 +658,62 @@ std::vector<uint64_t> Mp4Parser_t::DecodeAtom_SampleDurations(Atom_t* pAtom,int 
 
 }
 
+std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_SampleDescription(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+{
+	Atom.DecodeChildAtoms(ReadBytes);
+	
+	//	h264 has
+	//	avc1
+	//		avcC <-- sps etc
+	//		pasp <-- pixel aspect
+	auto* H264Atom = Atom.GetChildAtom("avc1");
+	if ( H264Atom )
+		return DecodeAtom_Avc1(*H264Atom,ReadBytes);
+	
+	//	should only be one child I think
+	std::stringstream Error;
+	Error << "Don't know how to parse sample codec[s]; ";
+	for ( int c=0;	c<Atom.mChildAtoms.size();	c++ )
+		Error << Atom.mChildAtoms[c].Fourcc << ", ";
+	throw std::runtime_error(Error.str());
+}
 
+CodecAvc1_t::CodecAvc1_t(DataReader_t& DataReader)
+{
+	auto Version = DataReader.Read8();
+	mProfile = DataReader.Read8();
+	mCompatbility = DataReader.Read8();
+	mLevel = DataReader.Read8();
+	mLengthMinusOne = DataReader.Read8();	//	6bits==0 3==lengthminusone
+	
+6 bits reserved + lengthSizeMinusOne: 03 = 00000011 = 3 (4 bytes)
+3 bits reserved + numOfSequenceParameterSets: 01 = 0001 = 1
+sequenceParameterSetLength: 002F = (47 bytes)
+(SPS record 47 bytes long)
+numOfPictureParameterSets: 01 = 1
+pictureParameterSetLength: 0004 = (4 bytes)
+(PPS record 4 bytes long)
+(end)
+}
+
+std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+{
+	Atom.DecodeChildAtoms(ReadBytes);
+	auto& Avc1Atom = Atom.GetChildAtomRef("avcC");
+	auto AtomData = Avc1Atom.GetContentsReader(ReadBytes);
+	std::shared_ptr<CodecAvc1_t> pAvc1( new CodecAvc1_t(AtomData) );
+	return pAvc1;
+}
+	
 std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
+	
+	//	get avc1 etc codec
+	{
+		auto SampleDescriptionAtom = Atom.GetChildAtomRef("stsd");
+		MovieHeader.Codec = DecodeAtom_SampleDescription(SampleDescriptionAtom,ReadBytes);
+	}
 	
 	auto ChunkOffsets32Atom = Atom.GetChildAtom("stco");
 	auto ChunkOffsets64Atom = Atom.GetChildAtom("co64");

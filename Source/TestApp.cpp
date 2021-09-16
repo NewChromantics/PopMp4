@@ -22,14 +22,7 @@ void InputThread(int Instance,std::istream& Input)
 		auto good = Input.good();
 		if ( bad || fail || eof )
 			break;
-	
-		//Stream.read( Data.GetArray(), Data.GetDataSize() );
-		//if ( Stream.fail() && !Stream.eof() )
-		//throw Soy::AssertException("Reading stream failed (not eof)");
-	
-		//auto BytesRead = Stream.gcount();
-		//Data.SetSize( BytesRead );
-		
+
 		char Buffer[1024*64];
 		auto Size = Input.readsome( Buffer, std::size(Buffer) );
 		auto BytesRead = Input.gcount();	//	should match size

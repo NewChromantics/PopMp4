@@ -11,6 +11,7 @@ namespace PopMp4
 {
 	class TSample;
 	class TDecoder;
+	class TDecoderParams;
 	
 	std::map<int,std::shared_ptr<TDecoder>>	Decoders;
 	int		LastInstanceIdent = 1000;
@@ -29,10 +30,17 @@ public:
 	std::vector<uint8_t>	mData;
 };
 
+
+class PopMp4::TDecoderParams
+{
+public:
+	bool	mConvertH264ToAnnexB = true;	//	data in mp4s will be prefixed with length (8,16 or 32bit). Enable this to convert sample data to Nalu-prefixed annexb 0 0 0 1 (no length)
+};
+
 class PopMp4::TDecoder
 {
 public:
-	TDecoder();
+	TDecoder(TDecoderParams Params);
 	~TDecoder();
 
 	void						PushData(const uint8_t* Data,size_t DataSize,bool EndOfFile);	//	std::span would be better, c++20
@@ -53,6 +61,8 @@ private:
 	size_t						mPendingDataFilePosition = 0;	//	pendingdata[0] is at this position in the file
 	bool						mHadEndOfFile = false;
 	Mp4Parser_t					mParser;					//	the actual data decoder
+
+	TDecoderParams				mParams;
 
 	std::mutex					mSamplesLock;
 	std::vector<std::shared_ptr<TSample>>	mSamples;

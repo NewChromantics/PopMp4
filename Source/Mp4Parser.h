@@ -155,6 +155,34 @@ public:
 	}
 };
 
+class Sps_t
+{
+public:
+	uint8_t	Version = 0;
+	uint8_t	Profile = 0;
+	uint8_t	Compatibility = 0;
+	uint8_t	Level = 0;
+	uint8_t	LengthMinusOne = 0;
+	uint8_
+};
+class Codec_t
+{
+public:
+};
+
+class CodecAvc1_t : public Codec_t
+{
+public:
+	CodecAvc1_t(DataReader_t& DataReader);
+	
+	uint8_t				mProfile = 0;
+	uint8_t				mCompatbility = 0;
+	uint8_t				mLevel = 0;
+	uint8_t				mLengthMinusOne = 0;
+	std::vector<Sps_t>	mSps;
+	std::vector<Pps_t>	mPps;
+};
+
 class MediaHeader_t
 {
 public:
@@ -173,6 +201,7 @@ public:
 	
 	//	gr: do we need to include the movie header?
 	MovieHeader_t	MovieHeader;
+	std::shared_ptr<Codec_t>	Codec;
 	
 	uint64_t	TimeUnitsToMs(uint64_t TimeUnit)
 	{
@@ -195,13 +224,15 @@ public:
 	void						DecodeAtom_Media(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
 	MediaHeader_t				DecodeAtom_MediaHeader(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
 	void						DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
+	std::shared_ptr<Codec_t>	DecodeAtom_SampleDescription(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	std::shared_ptr<Codec_t>	DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<Sample_t>		DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
 	std::vector<ChunkMeta_t>	DecodeAtom_ChunkMetas(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<uint64_t>		DecodeAtom_ChunkOffsets(Atom_t* ChunkOffsets32Atom,Atom_t* ChunkOffsets64Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<uint64_t>		DecodeAtom_SampleSizes(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<bool>			DecodeAtom_SampleKeyframes(Atom_t* pAtom,int SampleCount,ReadBytesFunc_t ReadBytes);
 	std::vector<uint64_t>		DecodeAtom_SampleDurations(Atom_t* pAtom,int SampleCount,int Default,ReadBytesFunc_t ReadBytes);
-	
+
 	void						OnSamples(std::vector<Sample_t>& NewSamples);
 	
 public:
