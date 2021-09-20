@@ -255,7 +255,7 @@ bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(Codec_t&)> E
 		
 		return true;
 	}
-	catch(TNeedMoreDataException& e)
+	catch(TNeedMoreDataException&)
 	{
 		return false;
 	}	
