@@ -158,13 +158,15 @@ public:
 class Sps_t
 {
 public:
-	uint8_t	Version = 0;
-	uint8_t	Profile = 0;
-	uint8_t	Compatibility = 0;
-	uint8_t	Level = 0;
-	uint8_t	LengthMinusOne = 0;
-	uint8_
+	std::vector<uint8_t>	Data;
 };
+
+class Pps_t
+{
+public:
+	std::vector<uint8_t>	Data;
+};
+
 class Codec_t
 {
 public:

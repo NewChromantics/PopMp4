@@ -660,7 +660,40 @@ std::vector<uint64_t> Mp4Parser_t::DecodeAtom_SampleDurations(Atom_t* pAtom,int 
 
 std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_SampleDescription(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 {
-	Atom.DecodeChildAtoms(ReadBytes);
+	auto Reader = Atom.GetContentsReader(ReadBytes);
+	
+	//	 https://www.cimarronsystems.com/wp-content/uploads/2017/04/Elements-of-the-H.264-VideoAAC-Audio-MP4-Movie-v2_0.pdf
+
+	auto Version = Reader.Read8();
+	auto Flags = Reader.Read24();
+	auto Entries = Reader.Read32();
+	auto SampleDescriptionSize = Reader.Read32();
+	auto CodecFourcc = Reader.ReadString(4);
+	auto Reserved = Reader.ReadBytes(6);
+	auto DataReferenceIndex = Reader.Read16();
+
+	auto Predefines = Reader.ReadBytes(16);
+	auto MediaWidth = Reader.Read16();
+	auto MediaHeight = Reader.Read16();
+	auto HorzResolution = Reader.Read16();
+	auto HorzResolutionLow = Reader.Read16();
+	auto VertResolution = Reader.Read16();
+	auto VertResolutionLow = Reader.Read16();
+	auto Reserved1 = Reader.Read8();
+	auto FrameCount = Reader.Read8();
+	auto ColourDepth = Reader.Read8();
+	auto Codec = Reader.ReadString(4);
+
+	auto MaxPacketSize = Reader.Read32();
+
+	//	Data table is a bunch of atoms, so read the remaining bytes and push them as children
+	//auto DataTableContents = Reader.ReadBytes( Reader.RemainingBytes() );
+	auto Remain = Reader.BytesRemaining();
+	while ( Reader.BytesRemaining() )
+	{
+		auto ChildAtom = Reader.ReadNextAtom();
+		Atom.mChildAtoms.push_back(ChildAtom);
+	}
 	
 	//	h264 has
 	//	avc1
@@ -686,14 +719,26 @@ CodecAvc1_t::CodecAvc1_t(DataReader_t& DataReader)
 	mLevel = DataReader.Read8();
 	mLengthMinusOne = DataReader.Read8();	//	6bits==0 3==lengthminusone
 	
-6 bits reserved + lengthSizeMinusOne: 03 = 00000011 = 3 (4 bytes)
-3 bits reserved + numOfSequenceParameterSets: 01 = 0001 = 1
-sequenceParameterSetLength: 002F = (47 bytes)
-(SPS record 47 bytes long)
-numOfPictureParameterSets: 01 = 1
-pictureParameterSetLength: 0004 = (4 bytes)
-(PPS record 4 bytes long)
-(end)
+	auto Reserved1 = mLengthMinusOne & 0b11111100;
+	auto SpsCount = DataReader.Read8();
+	auto Reserved2 = SpsCount & 0b11100000;
+	
+	for ( int i=0;	i<SpsCount;	i++ )
+	{
+		auto SpsLength = DataReader.Read16();
+		Sps_t Sps;
+		Sps.Data = DataReader.ReadBytes(SpsLength);
+		mSps.push_back(Sps);
+	}
+	
+	auto PpsCount = DataReader.Read8();
+	for ( int i=0;	i<PpsCount;	i++ )
+	{
+		auto PpsLength = DataReader.Read16();
+		Pps_t Pps;
+		Pps.Data = DataReader.ReadBytes(PpsLength);
+		mPps.push_back(Pps);
+	}
 }
 
 std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadBytes)

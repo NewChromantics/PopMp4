@@ -55,6 +55,9 @@ private:
 	//	if we wanted to support more containers, do it here
 	bool						DecodeNext();	//	returns true if we decoded something, false if we need more data
 	
+	void						OnNewSample(const Sample_t& Sample);
+	bool						ReadBytes(DataSpan_t& Buffer,size_t FilePosition);
+
 private:
 	std::mutex					mPendingDataLock;
 	std::vector<uint8_t>		mPendingData;
@@ -73,7 +76,8 @@ private:
 };
 
 
-PopMp4::TDecoder::TDecoder()
+PopMp4::TDecoder::TDecoder(TDecoderParams Params) :
+	mParams	(Params)
 {
 	auto Thread = [this](void*)
 	{
@@ -151,50 +155,59 @@ bool PopMp4::TDecoder::DecodeNext()
 {
 	auto ReadBytes = [&](DataSpan_t& Buffer,size_t FilePosition)
 	{
-		std::lock_guard<std::mutex> Lock( mPendingDataLock );
-		
-		//	requesting data we've dropped!
-		if ( FilePosition < mPendingDataFilePosition )
-			throw std::runtime_error("Requesting data we've dropped");
-		
-		//	requesting data we don't have [yet]
-		auto PendingDataEnd = mPendingDataFilePosition + mPendingData.size();
-		if ( FilePosition + Buffer.BufferSize > PendingDataEnd )
-		{
-			std::cout << "Requesting data out of range" << std::endl;
-			return false;
-		}
-		
-		//	copy
-		for ( int i=0;	i<Buffer.BufferSize;	i++ )
-		{
-			int p = FilePosition - mPendingDataFilePosition + i;
-			Buffer.Buffer[i] = mPendingData[p];
-		}
-		return true;	
+		return this->ReadBytes( Buffer, FilePosition );
 	};
 	
 	auto OnNewSample = [&](const Sample_t& Sample)
 	{
-		if ( Sample.DataFilePosition == 0 )
-			throw std::runtime_error("Sample hasn't resolved file position of data");
-
-		std::shared_ptr<TSample> pSample( new TSample(Sample) );
-		//	grab data
-		pSample->mData.resize( Sample.DataSize );
-		DataSpan_t Buffer( pSample->mData );
-		if ( !ReadBytes( Buffer, Sample.DataFilePosition ) )
-			throw std::runtime_error("Sample's data [position] hasn't been streamed in yet");
-		
-		std::lock_guard<std::mutex> Lock(mSamplesLock);
-		mSamples.push_back(pSample);
+		this->OnNewSample(Sample);
 	};
 
 	//	try and read next atom
 	return mParser.Read( ReadBytes, OnNewSample );
 }
 
+void PopMp4::TDecoder::OnNewSample(const Sample_t& Sample)
+{
+	if ( Sample.DataFilePosition == 0 )
+		throw std::runtime_error("Sample hasn't resolved file position of data");
 
+	std::shared_ptr<TSample> pSample( new TSample(Sample) );
+	//	grab data
+	pSample->mData.resize( Sample.DataSize );
+	DataSpan_t Buffer( pSample->mData );
+	if ( !ReadBytes( Buffer, Sample.DataFilePosition ) )
+		throw std::runtime_error("Sample's data [position] hasn't been streamed in yet");
+	
+	std::lock_guard<std::mutex> Lock(mSamplesLock);
+	mSamples.push_back(pSample);
+}
+
+bool PopMp4::TDecoder::ReadBytes(DataSpan_t& Buffer,size_t FilePosition)
+{
+	std::lock_guard<std::mutex> Lock( mPendingDataLock );
+	
+	//	requesting data we've dropped!
+	if ( FilePosition < mPendingDataFilePosition )
+		throw std::runtime_error("Requesting data we've dropped");
+	
+	//	requesting data we don't have [yet]
+	auto PendingDataEnd = mPendingDataFilePosition + mPendingData.size();
+	if ( FilePosition + Buffer.BufferSize > PendingDataEnd )
+	{
+		std::cout << "Requesting data out of range" << std::endl;
+		return false;
+	}
+	
+	//	copy
+	for ( int i=0;	i<Buffer.BufferSize;	i++ )
+	{
+		int p = FilePosition - mPendingDataFilePosition + i;
+		Buffer.Buffer[i] = mPendingData[p];
+	}
+	return true;	
+}
+	
 PopMp4::TDecoder& PopMp4::GetDecoder(int Instance)
 {
 	auto pDecoder = Decoders.at(Instance);	//	throws if missing
@@ -205,7 +218,9 @@ PopMp4::TDecoder& PopMp4::GetDecoder(int Instance)
 extern "C" int PopMp4_CreateDecoder()
 {
 	auto Instance = PopMp4::LastInstanceIdent++;
-	std::shared_ptr<PopMp4::TDecoder> Decoder( new PopMp4::TDecoder );
+	
+	PopMp4::TDecoderParams Params;
+	std::shared_ptr<PopMp4::TDecoder> Decoder( new PopMp4::TDecoder(Params) );
 	
 	//	todo: make sure key isnt used
 	PopMp4::Decoders[Instance] = Decoder;
