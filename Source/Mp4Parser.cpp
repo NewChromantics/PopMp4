@@ -666,34 +666,17 @@ std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_SampleDescription(Atom_t& Atom,
 
 	auto Version = Reader.Read8();
 	auto Flags = Reader.Read24();
-	auto Entries = Reader.Read32();
-	auto SampleDescriptionSize = Reader.Read32();
-	auto CodecFourcc = Reader.ReadString(4);
-	auto Reserved = Reader.ReadBytes(6);
-	auto DataReferenceIndex = Reader.Read16();
+	auto EntryCount = Reader.Read32();
 
-	auto Predefines = Reader.ReadBytes(16);
-	auto MediaWidth = Reader.Read16();
-	auto MediaHeight = Reader.Read16();
-	auto HorzResolution = Reader.Read16();
-	auto HorzResolutionLow = Reader.Read16();
-	auto VertResolution = Reader.Read16();
-	auto VertResolutionLow = Reader.Read16();
-	auto Reserved1 = Reader.Read8();
-	auto FrameCount = Reader.Read8();
-	auto ColourDepth = Reader.Read8();
-	auto Codec = Reader.ReadString(4);
-
-	auto MaxPacketSize = Reader.Read32();
-
-	//	Data table is a bunch of atoms, so read the remaining bytes and push them as children
-	//auto DataTableContents = Reader.ReadBytes( Reader.RemainingBytes() );
-	auto Remain = Reader.BytesRemaining();
+	//	each entry is essentially an atom
+	//	https://github.com/NewChromantics/PopCodecs/blob/master/PopMpeg4.cs#L1022
+	//	should match EntryCount
 	while ( Reader.BytesRemaining() )
 	{
 		auto ChildAtom = Reader.ReadNextAtom();
 		Atom.mChildAtoms.push_back(ChildAtom);
 	}
+
 	
 	//	h264 has
 	//	avc1
@@ -717,11 +700,14 @@ CodecAvc1_t::CodecAvc1_t(DataReader_t& DataReader)
 	mProfile = DataReader.Read8();
 	mCompatbility = DataReader.Read8();
 	mLevel = DataReader.Read8();
-	mLengthMinusOne = DataReader.Read8();	//	6bits==0 3==lengthminusone
 	
-	auto Reserved1 = mLengthMinusOne & 0b11111100;
-	auto SpsCount = DataReader.Read8();
-	auto Reserved2 = SpsCount & 0b11100000;
+	auto ReservedAndSizeLength = DataReader.Read8();	//	6bits==0 3==lengthminusone
+	auto Reserved1 =  ReservedAndSizeLength & 0b11111100;
+	mLengthMinusOne = ReservedAndSizeLength & 0b00000011;
+
+	auto ReservedAndSpsCount = DataReader.Read8();
+	auto SpsCount =  ReservedAndSpsCount & 0b00011111;
+	auto Reserved2 = ReservedAndSpsCount & 0b11100000;
 	
 	for ( int i=0;	i<SpsCount;	i++ )
 	{
@@ -743,10 +729,40 @@ CodecAvc1_t::CodecAvc1_t(DataReader_t& DataReader)
 
 std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 {
-	Atom.DecodeChildAtoms(ReadBytes);
+	auto Reader = Atom.GetContentsReader(ReadBytes);
+	//	https://github.com/NewChromantics/PopCodecs/blob/master/PopMpeg4.cs#L1024
+	//	stsd isn't very well documented
+	//	https://www.cimarronsystems.com/wp-content/uploads/2017/04/Elements-of-the-H.264-VideoAAC-Audio-MP4-Movie-v2_0.pdf
+	//auto SampleDescriptionSize = Reader.Read32();
+	//auto CodecFourcc = Reader.ReadString(4);
+	auto Reserved = Reader.ReadBytes(6);
+	auto DataReferenceIndex = Reader.Read16();
+
+	auto Predefines = Reader.ReadBytes(16);
+	auto MediaWidth = Reader.Read16();
+	auto MediaHeight = Reader.Read16();
+	auto HorzResolution = Reader.Read16();
+	auto HorzResolutionLow = Reader.Read16();
+	auto VertResolution = Reader.Read16();
+	auto VertResolutionLow = Reader.Read16();
+	auto Reserved1 = Reader.Read8();
+	auto FrameCount = Reader.Read8();
+	auto ColourDepth = Reader.Read8();
+
+	auto MoreData = Reader.ReadBytes(39);
+
+	//	remaining data is in atoms again, expecting typically
+	//	avcC (with actual codec data) and pasp (picture aspect)
+	while ( Reader.BytesRemaining() )
+	{
+		auto ChildAtom = Reader.ReadNextAtom();
+		Atom.mChildAtoms.push_back(ChildAtom);
+	}
+
+	//	explicitly decode avcc codec data (sps, pps in avcc format)
 	auto& Avc1Atom = Atom.GetChildAtomRef("avcC");
-	auto AtomData = Avc1Atom.GetContentsReader(ReadBytes);
-	std::shared_ptr<CodecAvc1_t> pAvc1( new CodecAvc1_t(AtomData) );
+	auto AvccData = Avc1Atom.GetContentsReader(ReadBytes);
+	std::shared_ptr<CodecAvc1_t> pAvc1( new CodecAvc1_t(AvccData) );
 	return pAvc1;
 }
 	
