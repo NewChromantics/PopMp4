@@ -179,8 +179,9 @@ void PopMp4::TDecoder::OnNewCodec(Codec_t& Codec)
 	//	only interested in h264 atm
 	if ( Codec.mFourcc != "avcC" )
 		return;
-		
-	auto& Avc1 = dynamic_cast<CodecAvc1_t&>(Codec);
+	
+	//	no RTTI in UE. static cast is... okay, but not the safest...
+	auto& Avc1 = static_cast<CodecAvc1_t&>(Codec);
 
 	//	turn sps & pps into samples
 	for ( int i=0;	i<Avc1.mSps.size();	i++ )
