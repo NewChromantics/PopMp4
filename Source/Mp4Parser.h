@@ -6,7 +6,13 @@
 #include <vector>
 #include <map>
 
+#if defined(_MSC_VER)
+//	windows
+#define __noexcept noexcept
+#else
+//	mac
 #define __noexcept _NOEXCEPT
+#endif
 
 class TNeedMoreDataException : public std::exception
 {
