@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <map>
 
 #define __noexcept _NOEXCEPT
 
@@ -128,6 +129,7 @@ public:
 	uint64_t	DurationMs = 0;
 	bool		IsKeyframe = false;
 	uint64_t	DataSize = 0;
+	uint32_t	DataPrefixSize = 0;	//	amount of bytes which is a prefix (eg. length of nalu packet)
 
 	//	data position is either file-relative (moov+mdat files, mdat may be before or after)
 	//	or relative to the next-mdat (probably fragmented)
@@ -170,6 +172,12 @@ public:
 class Codec_t
 {
 public:
+	virtual ~Codec_t()	{};
+	
+	virtual uint32_t	GetSampleDataPrefixSize()	{	return 0;	}
+	
+	std::string		mFourcc;
+	int				mTrackNumber = 0;
 };
 
 class CodecAvc1_t : public Codec_t
@@ -177,6 +185,8 @@ class CodecAvc1_t : public Codec_t
 public:
 	CodecAvc1_t(DataReader_t& DataReader);
 	
+	virtual uint32_t	GetSampleDataPrefixSize() override	{	return mLengthMinusOne+1;	}
+
 	uint8_t				mProfile = 0;
 	uint8_t				mCompatbility = 0;
 	uint8_t				mLevel = 0;
@@ -204,6 +214,7 @@ public:
 	//	gr: do we need to include the movie header?
 	MovieHeader_t	MovieHeader;
 	std::shared_ptr<Codec_t>	Codec;
+	int				TrackNumber = 0;
 	
 	uint64_t	TimeUnitsToMs(uint64_t TimeUnit)
 	{
@@ -218,12 +229,12 @@ public:
 class Mp4Parser_t
 {
 public:
-	bool						Read(ReadBytesFunc_t ReadBytes,std::function<void(const Sample_t&)> EnumNewSample);
+	bool						Read(ReadBytesFunc_t ReadBytes,std::function<void(Codec_t&)> EnumNewCodec,std::function<void(const Sample_t&)> EnumNewSample);
 	
 	void						DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	MovieHeader_t				DecodeAtom_MovieHeader(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	void						DecodeAtom_Trak(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
-	void						DecodeAtom_Media(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
+	void						DecodeAtom_Trak(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
+	void						DecodeAtom_Media(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
 	MediaHeader_t				DecodeAtom_MediaHeader(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
 	void						DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
 	std::shared_ptr<Codec_t>	DecodeAtom_SampleDescription(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
@@ -235,11 +246,14 @@ public:
 	std::vector<bool>			DecodeAtom_SampleKeyframes(Atom_t* pAtom,int SampleCount,ReadBytesFunc_t ReadBytes);
 	std::vector<uint64_t>		DecodeAtom_SampleDurations(Atom_t* pAtom,int SampleCount,int Default,ReadBytesFunc_t ReadBytes);
 
+	void						OnCodecHeader(std::shared_ptr<Codec_t> Codec);
 	void						OnSamples(std::vector<Sample_t>& NewSamples);
 	
 public:
 	uint64_t				mFilePosition = 0;
 	
-	std::vector<Sample_t>	mNewSamples;
-	std::vector<Atom_t>		mDatAtoms;	//	hold onto mdat in case they appear before moof/moovs
+	std::map<int,std::shared_ptr<Codec_t>>	mTrackCodecs;
+	std::vector<std::shared_ptr<Codec_t>>	mNewCodecs;
+	std::vector<Sample_t>		mNewSamples;
+	std::vector<Atom_t>			mDatAtoms;	//	hold onto mdat in case they appear before moof/moovs
 };

@@ -26,6 +26,7 @@ public:
 		Sample_t	( Sample )
 	{
 	}
+	TSample(){};
 	uint16_t				mStream = 0;
 	std::vector<uint8_t>	mData;
 };
@@ -56,6 +57,7 @@ private:
 	bool						DecodeNext();	//	returns true if we decoded something, false if we need more data
 	
 	void						OnNewSample(const Sample_t& Sample);
+	void						OnNewCodec(Codec_t& Codec);
 	bool						ReadBytes(DataSpan_t& Buffer,size_t FilePosition);
 
 private:
@@ -158,13 +160,70 @@ bool PopMp4::TDecoder::DecodeNext()
 		return this->ReadBytes( Buffer, FilePosition );
 	};
 	
+	auto OnNewCodec = [&](Codec_t& Codec)
+	{
+		this->OnNewCodec(Codec);
+	};
+	
 	auto OnNewSample = [&](const Sample_t& Sample)
 	{
 		this->OnNewSample(Sample);
 	};
 
 	//	try and read next atom
-	return mParser.Read( ReadBytes, OnNewSample );
+	return mParser.Read( ReadBytes, OnNewCodec, OnNewSample );
+}
+
+void PopMp4::TDecoder::OnNewCodec(Codec_t& Codec)
+{
+	//	only interested in h264 atm
+	if ( Codec.mFourcc != "avcC" )
+		return;
+		
+	auto& Avc1 = dynamic_cast<CodecAvc1_t&>(Codec);
+
+	//	turn sps & pps into samples
+	for ( int i=0;	i<Avc1.mSps.size();	i++ )
+	{
+		auto& Sps = Avc1.mSps[i].Data;
+		std::shared_ptr<TSample> pSample( new TSample() );
+		pSample->IsKeyframe = true;
+		pSample->mData = Sps;
+		pSample->mStream = Codec.mTrackNumber;
+		
+		if ( mParams.mConvertH264ToAnnexB )
+		{
+			//	insert nalu header
+			//	do we need sps content flag?
+			//	https://github.com/NewChromantics/PopCodecs/blob/master/PopH264.cs#L263
+			uint8_t Nalu[] = {0,0,0,1};
+			pSample->mData.insert( pSample->mData.begin(), &Nalu[0], &Nalu[std::size(Nalu)]);
+		}
+		
+		std::lock_guard<std::mutex> Lock(mSamplesLock);
+		mSamples.push_back(pSample);
+	}
+	
+	for ( int i=0;	i<Avc1.mPps.size();	i++ )
+	{
+		auto& Pps = Avc1.mPps[i].Data;
+		std::shared_ptr<TSample> pSample( new TSample() );
+		pSample->IsKeyframe = true;
+		pSample->mData = Pps;
+		pSample->mStream = Codec.mTrackNumber;
+		
+		if ( mParams.mConvertH264ToAnnexB )
+		{
+			//	insert nalu header
+			//	do we need sps content flag?
+			//	https://github.com/NewChromantics/PopCodecs/blob/master/PopH264.cs#L263
+			uint8_t Nalu[] = {0,0,0,1};
+			pSample->mData.insert( pSample->mData.begin(), &Nalu[0], &Nalu[std::size(Nalu)]);
+		}
+		
+		std::lock_guard<std::mutex> Lock(mSamplesLock);
+		mSamples.push_back(pSample);
+	}
 }
 
 void PopMp4::TDecoder::OnNewSample(const Sample_t& Sample)
@@ -178,6 +237,20 @@ void PopMp4::TDecoder::OnNewSample(const Sample_t& Sample)
 	DataSpan_t Buffer( pSample->mData );
 	if ( !ReadBytes( Buffer, Sample.DataFilePosition ) )
 		throw std::runtime_error("Sample's data [position] hasn't been streamed in yet");
+	
+	if ( mParams.mConvertH264ToAnnexB )
+	{
+		//	gr: do this more efficiently! (when we read data)
+
+		//	remove size prefix
+		pSample->mData.erase( pSample->mData.begin(), pSample->mData.begin()+Sample.DataPrefixSize );
+
+		//	insert nalu header
+		//	do we need sps content flag?
+		//	https://github.com/NewChromantics/PopCodecs/blob/master/PopH264.cs#L263
+		uint8_t Nalu[] = {0,0,0,1};
+		pSample->mData.insert( pSample->mData.begin(), &Nalu[0], &Nalu[std::size(Nalu)]);
+	}
 	
 	std::lock_guard<std::mutex> Lock(mSamplesLock);
 	mSamples.push_back(pSample);

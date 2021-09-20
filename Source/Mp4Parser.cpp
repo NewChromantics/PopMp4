@@ -222,7 +222,7 @@ BufferReader_t Atom_t::GetContentsReader(ReadBytesFunc_t ReadBytes)
 	return Reader;
 }
 
-bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(const Sample_t&)> EnumNewSample)
+bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(Codec_t&)> EnumNewCodec,std::function<void(const Sample_t&)> EnumNewSample)
 {
 	try
 	{
@@ -236,6 +236,14 @@ bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(const Sample
 		
 		std::Debug << "Got atom " << Atom.Fourcc << std::endl;
 		mFilePosition += Atom.AtomSize();
+		
+		//	flush new codec as samples
+		for ( int s=0;	s<mNewCodecs.size();	s++ )
+		{
+			auto& Codec = mNewCodecs[s];
+			EnumNewCodec(*Codec);
+		}
+		mNewCodecs.resize(0);
 		
 		//	flush new samples
 		for ( int s=0;	s<mNewSamples.size();	s++ )
@@ -268,7 +276,10 @@ void Mp4Parser_t::DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 	for ( int t=0;	t<Traks.size();	t++ )
 	{
 		auto& Trak = *Traks[t];
-		DecodeAtom_Trak(Trak,MovieHeader,ReadBytes);
+		//	tracks in mp4s start at 1...
+		//	also, work out if there's a proper place for track/stream numbers 
+		auto TrackNumber = t;	
+		DecodeAtom_Trak(Trak,TrackNumber,MovieHeader,ReadBytes);
 	}
 }
 
@@ -381,7 +392,7 @@ MovieHeader_t Mp4Parser_t::DecodeAtom_MovieHeader(Atom_t& Atom,ReadBytesFunc_t R
 	return Header;
 }
 
-void Mp4Parser_t::DecodeAtom_Trak(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
+void Mp4Parser_t::DecodeAtom_Trak(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 
@@ -389,18 +400,21 @@ void Mp4Parser_t::DecodeAtom_Trak(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBy
 	for ( int t=0;	t<Mdias.size();	t++ )
 	{
 		auto& Mdia = *Mdias[t];
-		DecodeAtom_Media(Mdia,MovieHeader,ReadBytes);
+		DecodeAtom_Media(Mdia,TrackNumber,MovieHeader,ReadBytes);
 	}
 }
 
-void Mp4Parser_t::DecodeAtom_Media(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
+void Mp4Parser_t::DecodeAtom_Media(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 	
 	MediaHeader_t MediaHeader( MovieHeader );
 	auto Mdhd = Atom.GetChildAtom("mdhd");
 	if ( Mdhd )
+	{
 		MediaHeader = DecodeAtom_MediaHeader( *Mdhd, MovieHeader, ReadBytes );
+	}
+	MediaHeader.TrackNumber = TrackNumber;
 	
 	DecodeAtom_MediaInfo( Atom.GetChildAtomRef("minf"), MediaHeader, ReadBytes );
 }
@@ -437,6 +451,11 @@ void Mp4Parser_t::DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,R
 	auto Samples = DecodeAtom_SampleTable( Atom.GetChildAtomRef("stbl"), MovieHeader, ReadBytes );
 	
 	OnSamples(Samples);
+}
+
+void Mp4Parser_t::OnCodecHeader(std::shared_ptr<Codec_t> Codec)
+{
+	mNewCodecs.push_back(Codec);
 }
 
 void Mp4Parser_t::OnSamples(std::vector<Sample_t>& NewSamples)
@@ -763,6 +782,7 @@ std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc
 	auto& Avc1Atom = Atom.GetChildAtomRef("avcC");
 	auto AvccData = Avc1Atom.GetContentsReader(ReadBytes);
 	std::shared_ptr<CodecAvc1_t> pAvc1( new CodecAvc1_t(AvccData) );
+	pAvc1->mFourcc = Avc1Atom.Fourcc;
 	return pAvc1;
 }
 	
@@ -774,6 +794,13 @@ std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,MediaHead
 	{
 		auto SampleDescriptionAtom = Atom.GetChildAtomRef("stsd");
 		MovieHeader.Codec = DecodeAtom_SampleDescription(SampleDescriptionAtom,ReadBytes);
+		
+		//	should error if we have no codec?
+		if ( MovieHeader.Codec )
+		{
+			MovieHeader.Codec->mTrackNumber = MovieHeader.TrackNumber;
+			OnCodecHeader( MovieHeader.Codec );
+		}
 	}
 	
 	auto ChunkOffsets32Atom = Atom.GetChildAtom("stco");
@@ -853,6 +880,7 @@ std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,MediaHead
 		}
 		*/
 	std::vector<Sample_t> Samples;
+	auto SampleDataPrefixSize = MovieHeader.Codec ? MovieHeader.Codec->GetSampleDataPrefixSize() : 0;
 
 	int SampleIndex = 0;
 	for ( int i=0;	i<ChunkMetas.size();	i++)
@@ -864,6 +892,7 @@ std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,MediaHead
 		for ( int s=0;	s<SampleMeta.SamplesPerChunk;	s++ )
 		{
 			Sample_t Sample;
+			Sample.DataPrefixSize = SampleDataPrefixSize;
 
 			if ( MdatStartPosition != nullptr )
 				Sample.MdatPosition = ChunkFileOffset - (*MdatStartPosition);
