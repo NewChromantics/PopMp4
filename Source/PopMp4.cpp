@@ -227,34 +227,87 @@ void PopMp4::TDecoder::OnNewCodec(Codec_t& Codec)
 	}
 }
 
+//	https://stackoverflow.com/questions/24884827/possible-locations-for-sequence-picture-parameter-sets-for-h-264-stream/24890903#24890903
+std::string GetH264PacketType(uint8_t NaluType)
+{
+	switch(NaluType)
+	{
+		case 0:	return "Unspecified";
+		case 1:return "Coded slice of a non-IDR picture";
+		case 2:return "Coded slice data partition A";
+		case 3:return "Coded slice data partition B";
+		case 4:return "Coded slice data partition C";
+		case 5:return "Coded slice of an IDR picture";
+		case 6:return "Supplemental enhancement information (SEI)";
+		case 7:return "Sequence parameter set";
+		case 8:return "Picture parameter set";
+		case 9:return "Access unit delimiter";
+		case 10:return "End of sequence";
+		case 11:return "End of stream";
+		case 12:return "Filler data";
+		case 13:return "Sequence parameter set extension";
+		case 14:return "Prefix NAL unit";
+		case 15:return "Subset sequence parameter set";
+		case 16:return "Depth parameter set";
+		case 19:return "Coded slice of an auxiliary coded picture without partitioning";
+		case 20:return "Coded slice extension";
+		case 21:return "Coded slice extension for depth view components";
+	default:break;
+	}
+	return "Unexpected/invalid nalu type";
+}
+
 void PopMp4::TDecoder::OnNewSample(const Sample_t& Sample)
 {
 	if ( Sample.DataFilePosition == 0 )
 		throw std::runtime_error("Sample hasn't resolved file position of data");
 
-	std::shared_ptr<TSample> pSample( new TSample(Sample) );
 	//	grab data
-	pSample->mData.resize( Sample.DataSize );
-	DataSpan_t Buffer( pSample->mData );
+	std::vector<uint8_t> SampleData;
+	SampleData.resize( Sample.DataSize );
+	DataSpan_t Buffer( SampleData );
 	if ( !ReadBytes( Buffer, Sample.DataFilePosition ) )
 		throw std::runtime_error("Sample's data [position] hasn't been streamed in yet");
 	
-	if ( mParams.mConvertH264ToAnnexB )
+	
+	if ( !mParams.mConvertH264ToAnnexB )
 	{
-		//	gr: do this more efficiently! (when we read data)
+		std::shared_ptr<TSample> pSample( new TSample(Sample) );
+		pSample->mData = SampleData;
+		std::lock_guard<std::mutex> Lock(mSamplesLock);
+		mSamples.push_back(pSample);
+		return;
+	}
 
-		//	remove size prefix
-		pSample->mData.erase( pSample->mData.begin(), pSample->mData.begin()+Sample.DataPrefixSize );
+	//	convert to annexb/nalu packets
+	//	todo: emulation bit
+	//	walk through data, one sample may contain many packets
+	if ( Sample.DataPrefixSize != 4 )
+		throw std::runtime_error("Todo: handle non 32bit packet prefixes");
 
+	BufferReader_t Reader(0,SampleData);
+	while ( Reader.BytesRemaining() )
+	{
+		//	extract size
+		auto Size = Reader.Read32();
+
+		//	extract the following data
+		std::shared_ptr<TSample> pSample( new TSample(Sample) );
+		pSample->mData = Reader.ReadBytes(Size);
+		
+		//	debug h264 packet type
+		auto H264PacketType = pSample->mData[0] & 0b00011111;
+		std::cout << "H264 packet; " << GetH264PacketType(H264PacketType) << std::endl;
+		
 		//	insert nalu header
-		//	do we need sps content flag?
-		//	https://github.com/NewChromantics/PopCodecs/blob/master/PopH264.cs#L263
 		uint8_t Nalu[] = {0,0,0,1};
 		pSample->mData.insert( pSample->mData.begin(), &Nalu[0], &Nalu[std::size(Nalu)]);
+
+		std::lock_guard<std::mutex> Lock(mSamplesLock);
+		mSamples.push_back(pSample);
 	}
 	
-	std::lock_guard<std::mutex> Lock(mSamplesLock);
-	mSamples.push_back(pSample);
+	
 }
 
 bool PopMp4::TDecoder::ReadBytes(DataSpan_t& Buffer,size_t FilePosition)
