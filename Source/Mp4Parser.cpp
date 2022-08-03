@@ -113,7 +113,7 @@ std::string DataReader_t::ReadString(int Length)
 void DataReader_t::Read(DataSpan_t& Buffer)
 {
 	auto ReadPos = mFilePosition+mExternalFilePosition;
-	if ( !mReadBytes( Buffer, ReadPos ) )
+	if ( !ReadFileBytes( Buffer, ReadPos ) )
 		throw TNeedMoreDataException();
 	
 	//	move file pos along
@@ -182,12 +182,12 @@ std::vector<uint8_t> Atom_t::GetContents(ReadBytesFunc_t ReadBytes)
 
 
 BufferReader_t::BufferReader_t(uint64_t ExternalFilePosition,std::vector<uint8_t> Contents) :
-	DataReader_t	( ExternalFilePosition, std::bind(&BufferReader_t::ReadContentBytes, this, std::placeholders::_1, std::placeholders::_2) ),
+	DataReader_t	( ExternalFilePosition ),
 	mContents		( Contents )
 {
 }
 
-bool BufferReader_t::ReadContentBytes(DataSpan_t& Buffer,size_t FilePosition)
+bool BufferReader_t::ReadFileBytes(DataSpan_t& Buffer,size_t FilePosition)
 {
 	auto ContentsPosition = FilePosition - mExternalFilePosition;
 	if ( ContentsPosition < 0 )
@@ -202,11 +202,20 @@ bool BufferReader_t::ReadContentBytes(DataSpan_t& Buffer,size_t FilePosition)
 }
 
 
+
+bool ExternalReader_t::ReadFileBytes(DataSpan_t& Buffer, size_t FilePosition)
+{
+	return mReadBytes(Buffer, FilePosition);
+}
+
 void Atom_t::DecodeChildAtoms(ReadBytesFunc_t ReadBytes)
 {
-	//auto ContentsFilePosition = this->ContentsFilePosition();
-	//BufferReader_t Reader( ContentsFilePosition, Contents );
 	auto Reader = GetContentsReader(ReadBytes);
+	//auto Contents = GetContents(ReadBytes);
+	//auto ContentsFilePosition = this->ContentsFilePosition();
+	//BufferReader_t Reader(ContentsFilePosition, Contents);
+
+
 	while ( Reader.BytesRemaining() )
 	{
 		auto Atom = Reader.ReadNextAtom();
@@ -227,7 +236,7 @@ bool Mp4::Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(Codec_t&)>
 {
 	try
 	{
-		DataReader_t Reader(mFilePosition,ReadBytes);
+		ExternalReader_t Reader(mFilePosition,ReadBytes);
 		//	get next atom
 		auto Atom = Reader.ReadNextAtom();
 	

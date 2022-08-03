@@ -51,11 +51,11 @@ class Atom_t;
 class DataReader_t
 {
 public:
-	DataReader_t(uint64_t ExternalFilePosition,ReadBytesFunc_t ReadBytes) :
-		mReadBytes				( ReadBytes ),
+	DataReader_t(uint64_t ExternalFilePosition) :
 		mExternalFilePosition	( ExternalFilePosition )
 	{
 	}
+	virtual ~DataReader_t() {};
 
 	Atom_t					ReadNextAtom();
 	uint8_t					Read8();
@@ -67,24 +67,41 @@ public:
 	std::string				ReadString(int Length);
 
 private:
-	//	calls read, throws if data missing, moves along file pos
 	void					Read(DataSpan_t& Buffer);
-	
+
+protected:
+	virtual bool			ReadFileBytes(DataSpan_t& Buffer, size_t FilePositon) = 0;
+
 public:
 	uint64_t		mFilePosition = 0;
 	uint64_t		mExternalFilePosition = 0;
-	ReadBytesFunc_t	mReadBytes;
 };
 
+//	rename to ExternalReader
+class ExternalReader_t : public DataReader_t
+{
+public:
+	ExternalReader_t(uint64_t ExternalFilePosition, ReadBytesFunc_t ReadBytes) :
+		mReadBytes		(ReadBytes),
+		DataReader_t	(ExternalFilePosition)
+	{
+	}
+
+	virtual bool		ReadFileBytes(DataSpan_t& Buffer, size_t FilePositon) override;
+
+private:
+	ReadBytesFunc_t		mReadBytes;
+};
 
 class BufferReader_t : public DataReader_t
 {
 public:
-	BufferReader_t(uint64_t ExternalFilePosition,std::vector<uint8_t> Contents);
+	BufferReader_t(uint64_t ExternalFilePosition, std::vector<uint8_t> Contents);
 
-	bool	ReadContentBytes(DataSpan_t&,size_t);
-	int		BytesRemaining()	{	return mContents.size() - mFilePosition;	}
-	
+	virtual bool			ReadFileBytes(DataSpan_t& Buffer, size_t FilePositon) override;
+
+	int						BytesRemaining()	{	return mContents.size() - mFilePosition;	}
+
 	//	need to make a copy atm
 	std::vector<uint8_t>	mContents;
 };
