@@ -4,7 +4,7 @@
 
 namespace std
 {
-	auto& Debug = std::cout;		//	debug to stout
+	static auto& Debug = std::cout;		//	debug to stout
 	//std::stringstream Debug;	//	absorb debug
 }
 
@@ -43,6 +43,7 @@ Atom_t DataReader_t::ReadNextAtom()
 	
 	return Atom;
 }
+
 
 uint8_t DataReader_t::Read8()
 {
@@ -222,7 +223,7 @@ BufferReader_t Atom_t::GetContentsReader(ReadBytesFunc_t ReadBytes)
 	return Reader;
 }
 
-bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(Codec_t&)> EnumNewCodec,std::function<void(const Sample_t&)> EnumNewSample)
+bool Mp4::Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(Codec_t&)> EnumNewCodec,std::function<void(const Sample_t&)> EnumNewSample)
 {
 	try
 	{
@@ -232,7 +233,17 @@ bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(Codec_t&)> E
 	
 		//	do specific atom decode
 		if ( Atom.Fourcc == "moov" )
-			DecodeAtom_Moov(Atom,ReadBytes);
+		{
+			auto OnFoundSamples = [this](std::vector<Sample_t>& Samples)
+			{
+				this->OnSamples(Samples);
+			};
+			auto OnFoundCodec = [this](std::shared_ptr<Codec_t> Codec)
+			{
+				this->OnCodecHeader(Codec);
+			};
+			DecodeAtom_Moov(Atom,ReadBytes,OnFoundSamples,OnFoundCodec);
+		}
 		
 		std::Debug << "Got atom " << Atom.Fourcc << std::endl;
 		mFilePosition += Atom.AtomSize();
@@ -261,7 +272,7 @@ bool Mp4Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(Codec_t&)> E
 	}	
 }
 
-void Mp4Parser_t::DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+void Mp4::DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&)> OnSamples,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 	
@@ -279,7 +290,7 @@ void Mp4Parser_t::DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 		//	tracks in mp4s start at 1...
 		//	also, work out if there's a proper place for track/stream numbers 
 		auto TrackNumber = t;	
-		DecodeAtom_Trak(Trak,TrackNumber,MovieHeader,ReadBytes);
+		DecodeAtom_Trak(Trak,TrackNumber,MovieHeader,ReadBytes,OnSamples,OnCodec);
 	}
 }
 
@@ -288,7 +299,7 @@ uint64_t GetDateTimeFromSecondsSinceMidnightJan1st1904(uint64_t Timestamp)
 	return 1234;	//	todo!
 }
 
-MovieHeader_t Mp4Parser_t::DecodeAtom_MovieHeader(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+MovieHeader_t Mp4::DecodeAtom_MovieHeader(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 {
 	auto Reader = Atom.GetContentsReader(ReadBytes);
 	
@@ -392,7 +403,7 @@ MovieHeader_t Mp4Parser_t::DecodeAtom_MovieHeader(Atom_t& Atom,ReadBytesFunc_t R
 	return Header;
 }
 
-void Mp4Parser_t::DecodeAtom_Trak(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
+void Mp4::DecodeAtom_Trak(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&)> OnSamples,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 
@@ -400,11 +411,11 @@ void Mp4Parser_t::DecodeAtom_Trak(Atom_t& Atom,int TrackNumber,MovieHeader_t& Mo
 	for ( int t=0;	t<Mdias.size();	t++ )
 	{
 		auto& Mdia = *Mdias[t];
-		DecodeAtom_Media(Mdia,TrackNumber,MovieHeader,ReadBytes);
+		DecodeAtom_Media(Mdia,TrackNumber,MovieHeader,ReadBytes,OnSamples,OnCodec);
 	}
 }
 
-void Mp4Parser_t::DecodeAtom_Media(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
+void Mp4::DecodeAtom_Media(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&)> OnSamples,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 	
@@ -416,10 +427,10 @@ void Mp4Parser_t::DecodeAtom_Media(Atom_t& Atom,int TrackNumber,MovieHeader_t& M
 	}
 	MediaHeader.TrackNumber = TrackNumber;
 	
-	DecodeAtom_MediaInfo( Atom.GetChildAtomRef("minf"), MediaHeader, ReadBytes );
+	DecodeAtom_MediaInfo( Atom.GetChildAtomRef("minf"), MediaHeader, ReadBytes, OnSamples, OnCodec );
 }
 
-MediaHeader_t Mp4Parser_t::DecodeAtom_MediaHeader(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
+MediaHeader_t Mp4::DecodeAtom_MediaHeader(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
 {
 	auto Reader = Atom.GetContentsReader(ReadBytes);
 	
@@ -443,28 +454,28 @@ MediaHeader_t Mp4Parser_t::DecodeAtom_MediaHeader(Atom_t& Atom,MovieHeader_t& Mo
 	return Header;
 }
 
-void Mp4Parser_t::DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
+void Mp4::DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&)> OnSamples,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 	//	js is
 	//	samples = DecodeAtom_SampleTable
-	auto Samples = DecodeAtom_SampleTable( Atom.GetChildAtomRef("stbl"), MovieHeader, ReadBytes );
+	auto Samples = DecodeAtom_SampleTable( Atom.GetChildAtomRef("stbl"), MovieHeader, ReadBytes, OnCodec );
 	
 	OnSamples(Samples);
 }
 
-void Mp4Parser_t::OnCodecHeader(std::shared_ptr<Codec_t> Codec)
+void Mp4::Parser_t::OnCodecHeader(std::shared_ptr<Codec_t> Codec)
 {
 	mNewCodecs.push_back(Codec);
 }
 
-void Mp4Parser_t::OnSamples(std::vector<Sample_t>& NewSamples)
+void Mp4::Parser_t::OnSamples(std::vector<Sample_t>& NewSamples)
 {
 	mNewSamples.insert( mNewSamples.end(), std::begin(NewSamples), std::end(NewSamples) );
 }
 
 
-std::vector<ChunkMeta_t> Mp4Parser_t::DecodeAtom_ChunkMetas(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+std::vector<ChunkMeta_t> Mp4::DecodeAtom_ChunkMetas(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 {
 	std::vector<ChunkMeta_t> Metas;
 	
@@ -496,7 +507,7 @@ std::vector<ChunkMeta_t> Mp4Parser_t::DecodeAtom_ChunkMetas(Atom_t& Atom,ReadByt
 	return Metas;
 }
 
-std::vector<uint64_t> Mp4Parser_t::DecodeAtom_ChunkOffsets(Atom_t* ChunkOffsets32Atom,Atom_t* ChunkOffsets64Atom,ReadBytesFunc_t ReadBytes)
+std::vector<uint64_t> Mp4::DecodeAtom_ChunkOffsets(Atom_t* ChunkOffsets32Atom,Atom_t* ChunkOffsets64Atom,ReadBytesFunc_t ReadBytes)
 {
 	Atom_t* pAtom = nullptr;
 	int OffsetSize = 0;
@@ -537,7 +548,7 @@ std::vector<uint64_t> Mp4Parser_t::DecodeAtom_ChunkOffsets(Atom_t* ChunkOffsets3
 	return Offsets;
 }
 
-std::vector<uint64_t> Mp4Parser_t::DecodeAtom_SampleSizes(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+std::vector<uint64_t> Mp4::DecodeAtom_SampleSizes(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 {
 	auto Reader = Atom.GetContentsReader(ReadBytes);
 	auto Version = Reader.Read8();
@@ -586,7 +597,7 @@ std::vector<uint64_t> Mp4Parser_t::DecodeAtom_SampleSizes(Atom_t& Atom,ReadBytes
 	return Sizes;
 }
 
-std::vector<bool> Mp4Parser_t::DecodeAtom_SampleKeyframes(Atom_t* pAtom,int SampleCount,ReadBytesFunc_t ReadBytes)
+std::vector<bool> Mp4::DecodeAtom_SampleKeyframes(Atom_t* pAtom,int SampleCount,ReadBytesFunc_t ReadBytes)
 {
 	//	keyframe index map
 	std::vector<bool> Keyframes;
@@ -632,7 +643,7 @@ std::vector<bool> Mp4Parser_t::DecodeAtom_SampleKeyframes(Atom_t* pAtom,int Samp
 }
 
 
-std::vector<uint64_t> Mp4Parser_t::DecodeAtom_SampleDurations(Atom_t* pAtom,int SampleCount,int Default,ReadBytesFunc_t ReadBytes)
+std::vector<uint64_t> Mp4::DecodeAtom_SampleDurations(Atom_t* pAtom,int SampleCount,int Default,ReadBytesFunc_t ReadBytes)
 {
 	std::vector<uint64_t> Durations;
 	if ( !pAtom )
@@ -677,7 +688,7 @@ std::vector<uint64_t> Mp4Parser_t::DecodeAtom_SampleDurations(Atom_t* pAtom,int 
 
 }
 
-std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_SampleDescription(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+std::shared_ptr<Codec_t> Mp4::DecodeAtom_SampleDescription(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 {
 	auto Reader = Atom.GetContentsReader(ReadBytes);
 	
@@ -746,7 +757,7 @@ CodecAvc1_t::CodecAvc1_t(DataReader_t& DataReader)
 	}
 }
 
-std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+std::shared_ptr<Codec_t> Mp4::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
 {
 	auto Reader = Atom.GetContentsReader(ReadBytes);
 	//	https://github.com/NewChromantics/PopCodecs/blob/master/PopMpeg4.cs#L1024
@@ -786,7 +797,7 @@ std::shared_ptr<Codec_t> Mp4Parser_t::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc
 	return pAvc1;
 }
 	
-std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
+std::vector<Sample_t> Mp4::DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec)
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 	
@@ -799,7 +810,7 @@ std::vector<Sample_t> Mp4Parser_t::DecodeAtom_SampleTable(Atom_t& Atom,MediaHead
 		if ( MovieHeader.Codec )
 		{
 			MovieHeader.Codec->mTrackNumber = MovieHeader.TrackNumber;
-			OnCodecHeader( MovieHeader.Codec );
+			OnCodec( MovieHeader.Codec );
 		}
 	}
 	
