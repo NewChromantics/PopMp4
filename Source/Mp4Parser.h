@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <cmath>	//	floorf
+#include <memory>
 
 #if defined(_MSC_VER)
 //	windows
