@@ -190,10 +190,13 @@ BufferReader_t::BufferReader_t(uint64_t ExternalFilePosition,std::vector<uint8_t
 bool BufferReader_t::ReadFileBytes(DataSpan_t& Buffer,size_t FilePosition)
 {
 	auto ContentsPosition = FilePosition - mExternalFilePosition;
-	if ( ContentsPosition < 0 )
-		throw std::runtime_error("File position out of contents range");
-	if ( ContentsPosition >= mContents.size() )
-		throw std::runtime_error("File position out of contents range");
+	if ( ContentsPosition < 0 || ContentsPosition >= mContents.size() )
+	{
+		std::stringstream Error;
+		Error << "Requested x" << Buffer.BufferSize << " from File position (" << ContentsPosition << "=" << FilePosition << "-" << mExternalFilePosition << " out of contents range (" << mContents.size() << ")";
+		throw std::runtime_error(Error.str());
+	}
+	
 	for ( int i=0;	i<Buffer.BufferSize;	i++ )
 	{
 		Buffer.Buffer[i] = mContents[ContentsPosition+i];
