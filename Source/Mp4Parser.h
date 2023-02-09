@@ -23,7 +23,7 @@ std::string	GetFourccString(uint32_t Fourcc,bool Reversed);
 class TNeedMoreDataException : public std::exception
 {
 public:
-	virtual const char* what() const __noexcept { return "Invalid device name"; }
+	virtual const char* what() const __noexcept { return "NeedMoreData"; }
 };
 
 //	replace with std::span, but that's c++20
