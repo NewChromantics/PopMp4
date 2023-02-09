@@ -16,6 +16,10 @@
 #define __noexcept _NOEXCEPT
 #endif
 
+
+std::string	GetFourccString(uint32_t Fourcc,bool Reversed);
+
+
 class TNeedMoreDataException : public std::exception
 {
 public:
@@ -63,6 +67,7 @@ public:
 	uint16_t				Read16();
 	uint32_t				Read24();
 	uint32_t				Read32();
+	uint32_t				Read32Reversed();
 	uint64_t				Read64();
 	std::vector<uint8_t>	ReadBytes(size_t Size);
 	std::string				ReadString(int Length);
@@ -110,21 +115,22 @@ public:
 class Atom_t
 {
 public:
-	std::string	Fourcc;
+	uint32_t	Fourcc = 0;
 	uint32_t	Size = 0;
 	uint64_t	Size64 = 0;
 	uint64_t	FilePosition = 0;
 	std::vector<Atom_t>	mChildAtoms;
 
-	void		DecodeChildAtoms(ReadBytesFunc_t ReadBytes);
+	void					DecodeChildAtoms(ReadBytesFunc_t ReadBytes);
 	
 	//	fetch contents on demand
 	std::vector<uint8_t>	GetContents(ReadBytesFunc_t ReadBytes);
 	BufferReader_t			GetContentsReader(ReadBytesFunc_t ReadBytes);
-	std::vector<Atom_t*>	GetChildAtoms(const std::string& MatchFourcc);
-	Atom_t&					GetChildAtomRef(const std::string& MatchFourcc);	//	 expect & match one-instance of this child atom	
-	Atom_t*					GetChildAtom(const std::string& MatchFourcc);	//	 expect & match one-instance of this child atom	
+	std::vector<Atom_t*>	GetChildAtoms(uint32_t MatchFourcc);
+	Atom_t&					GetChildAtomRef(uint32_t MatchFourcc);	//	 expect & match one-instance of this child atom
+	Atom_t*					GetChildAtom(uint32_t MatchFourcc);	//	 expect & match one-instance of this child atom
 
+	std::string	GetFourccString()	{	return ::GetFourccString( Fourcc, true );	}
 	uint64_t	ContentsFilePosition()	{	return FilePosition + HeaderSize();	}
 	uint64_t	AtomSize()		{	return (Size==1) ? Size64 : Size;	}
 	uint64_t	ContentSize()	{	return AtomSize() - HeaderSize();	}
@@ -203,7 +209,7 @@ public:
 	
 	virtual uint32_t	GetSampleDataPrefixSize()	{	return 0;	}
 	
-	std::string		mFourcc;
+	uint32_t		mFourcc = 0;
 	int				mTrackNumber = 0;
 };
 

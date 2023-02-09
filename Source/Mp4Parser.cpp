@@ -26,7 +26,8 @@ Atom_t DataReader_t::ReadNextAtom()
 	Atom_t Atom;
 	Atom.FilePosition = mFilePosition + mExternalFilePosition;
 	Atom.Size = Read32();
-	Atom.Fourcc = ReadString(4);
+	//Atom.Fourcc = ReadString(4);
+	Atom.Fourcc = Read32Reversed();
 	
 	//	size of 1 means 64 bit size
 	if ( Atom.Size == 1 )
@@ -83,6 +84,19 @@ uint32_t DataReader_t::Read32()
 	return Value;
 }
 
+uint32_t DataReader_t::Read32Reversed()
+{
+	uint8_t abc[4];
+	DataSpan_t Data( abc );
+	Read( Data );
+	uint32_t abc32 = 0;
+	abc32 |= abc[0] << 24;
+	abc32 |= abc[1] << 16;
+	abc32 |= abc[2] << 8;
+	abc32 |= abc[3] << 0;
+	return abc32;
+}
+
 uint64_t DataReader_t::Read64()
 {
 	uint64_t Value = 0;
@@ -120,7 +134,7 @@ void DataReader_t::Read(DataSpan_t& Buffer)
 	mFilePosition += Buffer.BufferSize;
 }
 
-std::vector<Atom_t*> Atom_t::GetChildAtoms(const std::string& MatchFourcc)
+std::vector<Atom_t*> Atom_t::GetChildAtoms(uint32_t MatchFourcc)
 {
 	std::vector<Atom_t*> Children;
 	for( int i=0;	i<mChildAtoms.size();	i++ )
@@ -134,7 +148,7 @@ std::vector<Atom_t*> Atom_t::GetChildAtoms(const std::string& MatchFourcc)
 }
 
 
-Atom_t* Atom_t::GetChildAtom(const std::string& MatchFourcc)
+Atom_t* Atom_t::GetChildAtom(uint32_t MatchFourcc)
 {
 	Atom_t* Match = nullptr;
 	for( int i=0;	i<mChildAtoms.size();	i++ )
@@ -154,7 +168,7 @@ Atom_t* Atom_t::GetChildAtom(const std::string& MatchFourcc)
 	return Match;
 }
 
-Atom_t& Atom_t::GetChildAtomRef(const std::string& MatchFourcc)
+Atom_t& Atom_t::GetChildAtomRef(uint32_t MatchFourcc)
 {
 	Atom_t* Match = GetChildAtom(MatchFourcc);
 	if ( !Match )
@@ -244,7 +258,7 @@ bool Mp4::Parser_t::Read(ReadBytesFunc_t ReadBytes,std::function<void(Codec_t&)>
 		auto Atom = Reader.ReadNextAtom();
 	
 		//	do specific atom decode
-		if ( Atom.Fourcc == "moov" )
+		if ( Atom.Fourcc == 'moov' )
 		{
 			auto OnFoundSamples = [this](std::vector<Sample_t>& Samples)
 			{
@@ -290,12 +304,12 @@ void Mp4::DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes,std::function<v
 	
 	//	decode movie header mvhd as it has timing meta
 	MovieHeader_t MovieHeader;
-	auto MovieHeaderAtom = Atom.GetChildAtom("mvhd");
+	auto MovieHeaderAtom = Atom.GetChildAtom('mvhd');
 	if ( MovieHeaderAtom )
 		MovieHeader = DecodeAtom_MovieHeader( *MovieHeaderAtom, ReadBytes);
 		
 	//	decode tracks
-	auto Traks = Atom.GetChildAtoms("trak");
+	auto Traks = Atom.GetChildAtoms('trak');
 	for ( int t=0;	t<Traks.size();	t++ )
 	{
 		auto& Trak = *Traks[t];
@@ -419,7 +433,7 @@ void Mp4::DecodeAtom_Trak(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeade
 {
 	Atom.DecodeChildAtoms( ReadBytes );
 
-	auto Mdias = Atom.GetChildAtoms("mdia");
+	auto Mdias = Atom.GetChildAtoms('mdia');
 	for ( int t=0;	t<Mdias.size();	t++ )
 	{
 		auto& Mdia = *Mdias[t];
@@ -432,14 +446,14 @@ void Mp4::DecodeAtom_Media(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHead
 	Atom.DecodeChildAtoms( ReadBytes );
 	
 	MediaHeader_t MediaHeader( MovieHeader );
-	auto Mdhd = Atom.GetChildAtom("mdhd");
+	auto Mdhd = Atom.GetChildAtom('mdhd');
 	if ( Mdhd )
 	{
 		MediaHeader = DecodeAtom_MediaHeader( *Mdhd, MovieHeader, ReadBytes );
 	}
 	MediaHeader.TrackNumber = TrackNumber;
 	
-	DecodeAtom_MediaInfo( Atom.GetChildAtomRef("minf"), MediaHeader, ReadBytes, OnSamples, OnCodec );
+	DecodeAtom_MediaInfo( Atom.GetChildAtomRef('minf'), MediaHeader, ReadBytes, OnSamples, OnCodec );
 }
 
 MediaHeader_t Mp4::DecodeAtom_MediaHeader(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)
@@ -471,7 +485,7 @@ void Mp4::DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytes
 	Atom.DecodeChildAtoms( ReadBytes );
 	//	js is
 	//	samples = DecodeAtom_SampleTable
-	auto Samples = DecodeAtom_SampleTable( Atom.GetChildAtomRef("stbl"), MovieHeader, ReadBytes, OnCodec );
+	auto Samples = DecodeAtom_SampleTable( Atom.GetChildAtomRef('stbl'), MovieHeader, ReadBytes, OnCodec );
 	
 	OnSamples(Samples);
 }
@@ -724,7 +738,7 @@ std::shared_ptr<Codec_t> Mp4::DecodeAtom_SampleDescription(Atom_t& Atom,ReadByte
 	//	avc1
 	//		avcC <-- sps etc
 	//		pasp <-- pixel aspect
-	auto* H264Atom = Atom.GetChildAtom("avc1");
+	auto* H264Atom = Atom.GetChildAtom('avc1');
 	if ( H264Atom )
 		return DecodeAtom_Avc1(*H264Atom,ReadBytes);
 	
@@ -802,7 +816,7 @@ std::shared_ptr<Codec_t> Mp4::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadB
 	}
 
 	//	explicitly decode avcc codec data (sps, pps in avcc format)
-	auto& Avc1Atom = Atom.GetChildAtomRef("avcC");
+	auto& Avc1Atom = Atom.GetChildAtomRef('avcC');
 	auto AvccData = Avc1Atom.GetContentsReader(ReadBytes);
 	std::shared_ptr<CodecAvc1_t> pAvc1( new CodecAvc1_t(AvccData) );
 	pAvc1->mFourcc = Avc1Atom.Fourcc;
@@ -815,7 +829,7 @@ std::vector<Sample_t> Mp4::DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& Mo
 	
 	//	get avc1 etc codec
 	{
-		auto SampleDescriptionAtom = Atom.GetChildAtomRef("stsd");
+		auto SampleDescriptionAtom = Atom.GetChildAtomRef('stsd');
 		MovieHeader.Codec = DecodeAtom_SampleDescription(SampleDescriptionAtom,ReadBytes);
 		
 		//	should error if we have no codec?
@@ -826,13 +840,13 @@ std::vector<Sample_t> Mp4::DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& Mo
 		}
 	}
 	
-	auto ChunkOffsets32Atom = Atom.GetChildAtom("stco");
-	auto ChunkOffsets64Atom = Atom.GetChildAtom("co64");
-	auto SampleSizesAtom = Atom.GetChildAtom("stsz");
-	auto SampleToChunkAtom = Atom.GetChildAtom("stsc");
-	auto SyncSamplesAtom = Atom.GetChildAtom("stss");
-	auto SampleDecodeDurationsAtom = Atom.GetChildAtom("stts");
-	auto SamplePresentationTimeOffsetsAtom = Atom.GetChildAtom("ctts");
+	auto ChunkOffsets32Atom = Atom.GetChildAtom('stco');
+	auto ChunkOffsets64Atom = Atom.GetChildAtom('co64');
+	auto SampleSizesAtom = Atom.GetChildAtom('stsz');
+	auto SampleToChunkAtom = Atom.GetChildAtom('stsc');
+	auto SyncSamplesAtom = Atom.GetChildAtom('stss');
+	auto SampleDecodeDurationsAtom = Atom.GetChildAtom('stts');
+	auto SamplePresentationTimeOffsetsAtom = Atom.GetChildAtom('ctts');
 	
 	//	work out samples from atoms!
 	if (SampleSizesAtom == nullptr)
