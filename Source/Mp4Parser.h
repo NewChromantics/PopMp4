@@ -8,22 +8,12 @@
 #include <cmath>	//	floorf
 #include <memory>
 
-#if defined(_MSC_VER)
-//	windows
-#define __noexcept noexcept
-#else
-//	mac
-#define __noexcept _NOEXCEPT
-#endif
-
-
 std::string	GetFourccString(uint32_t Fourcc,bool Reversed);
-
 
 class TNeedMoreDataException : public std::exception
 {
 public:
-	virtual const char* what() const __noexcept { return "NeedMoreData"; }
+	const char* what() const noexcept override { return "NeedMoreData"; }
 };
 
 //	replace with std::span, but that's c++20
