@@ -45,11 +45,17 @@ Atom_t DataReader_t::ReadNextAtom()
 	return Atom;
 }
 
+template<typename TYPE>
+std::span<uint8_t> GetByteSpan(TYPE& Element)
+{
+	auto* Ptr = reinterpret_cast<uint8_t*>( &Element );
+	return std::span( Ptr, sizeof(TYPE) );
+}
 
 uint8_t DataReader_t::Read8()
 {
 	uint8_t Value = 0;
-	DataSpan_t Data( Value );
+	std::span Data( &Value, 1 );
 	Read( Data );
 	return Value;
 }
@@ -57,7 +63,7 @@ uint8_t DataReader_t::Read8()
 uint16_t DataReader_t::Read16()
 {
 	uint16_t Value = 0;
-	DataSpan_t Data( Value );
+	auto Data = GetByteSpan(Value);
 	Read( Data );
 	swapEndian(Value);
 	return Value;
@@ -66,7 +72,7 @@ uint16_t DataReader_t::Read16()
 uint32_t DataReader_t::Read24()
 {
 	uint8_t abc[3];
-	DataSpan_t Data( abc );
+	std::span Data( abc, std::size(abc) );
 	Read( Data );
 	uint32_t abc32 = 0;
 	abc32 |= abc[0] << 16;
@@ -78,7 +84,7 @@ uint32_t DataReader_t::Read24()
 uint32_t DataReader_t::Read32()
 {
 	uint32_t Value = 0;
-	DataSpan_t Data( Value );
+	auto Data = GetByteSpan( Value );
 	Read( Data );
 	swapEndian(Value);
 	return Value;
@@ -87,7 +93,7 @@ uint32_t DataReader_t::Read32()
 uint32_t DataReader_t::Read32Reversed()
 {
 	uint8_t abc[4];
-	DataSpan_t Data( abc );
+	std::span Data( abc, std::size(abc) );
 	Read( Data );
 	uint32_t abc32 = 0;
 	abc32 |= abc[0] << 24;
@@ -100,7 +106,7 @@ uint32_t DataReader_t::Read32Reversed()
 uint64_t DataReader_t::Read64()
 {
 	uint64_t Value = 0;
-	DataSpan_t Data( Value );
+	auto Data = GetByteSpan( Value );
 	Read( Data );
 	swapEndian(Value);
 	return Value;
@@ -110,9 +116,7 @@ std::vector<uint8_t> DataReader_t::ReadBytes(size_t Size)
 {
 	std::vector<uint8_t> Buffer;
 	Buffer.resize(Size);
-	DataSpan_t Data;
-	Data.Buffer = Buffer.data();
-	Data.BufferSize = Buffer.size();
+	std::span Data( Buffer );
 	Read( Data );
 	return Buffer;
 }
@@ -124,14 +128,14 @@ std::string DataReader_t::ReadString(int Length)
 	return std::string( Chars, Length );
 }
 
-void DataReader_t::Read(DataSpan_t& Buffer)
+void DataReader_t::Read(std::span<uint8_t> Buffer)
 {
 	auto ReadPos = mFilePosition+mExternalFilePosition;
 	if ( !ReadFileBytes( Buffer, ReadPos ) )
 		throw TNeedMoreDataException();
 	
 	//	move file pos along
-	mFilePosition += Buffer.BufferSize;
+	mFilePosition += Buffer.size();
 }
 
 std::vector<Atom_t*> Atom_t::GetChildAtoms(uint32_t MatchFourcc)
@@ -184,9 +188,8 @@ std::vector<uint8_t> Atom_t::GetContents(ReadBytesFunc_t ReadBytes)
 {
 	std::vector<uint8_t> Buffer;
 	Buffer.resize(ContentSize());
-	DataSpan_t Data;
-	Data.Buffer = Buffer.data();
-	Data.BufferSize = Buffer.size();
+	std::span Data( Buffer );
+
 	auto ReadPos = ContentsFilePosition();
 	if ( !ReadBytes( Data, ReadPos ) )
 		throw TNeedMoreDataException();
@@ -201,26 +204,26 @@ BufferReader_t::BufferReader_t(uint64_t ExternalFilePosition,std::vector<uint8_t
 {
 }
 
-bool BufferReader_t::ReadFileBytes(DataSpan_t& Buffer,size_t FilePosition)
+bool BufferReader_t::ReadFileBytes(std::span<uint8_t> Buffer,size_t FilePosition)
 {
 	auto ContentsPosition = FilePosition - mExternalFilePosition;
 	if ( ContentsPosition < 0 || ContentsPosition >= mContents.size() )
 	{
 		std::stringstream Error;
-		Error << "Requested x" << Buffer.BufferSize << " from File position (" << ContentsPosition << "=" << FilePosition << "-" << mExternalFilePosition << " out of contents range (" << mContents.size() << ")";
+		Error << "Requested x" << Buffer.size() << " from File position (" << ContentsPosition << "=" << FilePosition << "-" << mExternalFilePosition << " out of contents range (" << mContents.size() << ")";
 		throw std::runtime_error(Error.str());
 	}
 	
-	for ( int i=0;	i<Buffer.BufferSize;	i++ )
+	for ( int i=0;	i<Buffer.size();	i++ )
 	{
-		Buffer.Buffer[i] = mContents[ContentsPosition+i];
+		Buffer[i] = mContents[ContentsPosition+i];
 	}
 	return true;
 }
 
 
 
-bool ExternalReader_t::ReadFileBytes(DataSpan_t& Buffer, size_t FilePosition)
+bool ExternalReader_t::ReadFileBytes(std::span<uint8_t> Buffer, size_t FilePosition)
 {
 	return mReadBytes(Buffer, FilePosition);
 }

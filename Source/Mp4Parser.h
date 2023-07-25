@@ -7,6 +7,8 @@
 #include <map>
 #include <cmath>	//	floorf
 #include <memory>
+#include <span>
+
 
 std::string	GetFourccString(uint32_t Fourcc,bool Reversed);
 
@@ -16,31 +18,9 @@ public:
 	const char* what() const noexcept override { return "NeedMoreData"; }
 };
 
-//	replace with std::span, but that's c++20
-//	gr: add our c++17 std::span
-class DataSpan_t
-{
-public:
-	DataSpan_t(){}
-	
-	//	hacky! support C arrays etc
-	template<typename T>
-	DataSpan_t(T& Value) :
-		Buffer		( reinterpret_cast<uint8_t*>(&Value) ),
-		BufferSize	( sizeof(T) )
-	{
-	}
-	DataSpan_t(std::vector<uint8_t>& Array) :
-		Buffer		( Array.data() ),
-		BufferSize	( Array.size() )
-	{
-	}
-	uint8_t*	Buffer = nullptr;
-	size_t		BufferSize = 0;
-};
 
 //	ReadBytes( FillThisBufferSize, FilePosition )
-typedef std::function<bool(DataSpan_t&,size_t)> ReadBytesFunc_t;
+typedef std::function<bool(std::span<uint8_t>,size_t)> ReadBytesFunc_t;
 class Atom_t;
 
 class DataReader_t
@@ -63,10 +43,10 @@ public:
 	std::string				ReadString(int Length);
 
 private:
-	void					Read(DataSpan_t& Buffer);
+	void					Read(std::span<uint8_t> Buffer);
 
 protected:
-	virtual bool			ReadFileBytes(DataSpan_t& Buffer, size_t FilePositon) = 0;
+	virtual bool			ReadFileBytes(std::span<uint8_t> Buffer, size_t FilePositon) = 0;
 
 public:
 	uint64_t		mFilePosition = 0;
@@ -83,7 +63,7 @@ public:
 	{
 	}
 
-	virtual bool		ReadFileBytes(DataSpan_t& Buffer, size_t FilePositon) override;
+	virtual bool		ReadFileBytes(std::span<uint8_t> Buffer,size_t FilePositon) override;
 
 private:
 	ReadBytesFunc_t		mReadBytes;
@@ -94,7 +74,7 @@ class BufferReader_t : public DataReader_t
 public:
 	BufferReader_t(uint64_t ExternalFilePosition, std::vector<uint8_t> Contents);
 
-	virtual bool			ReadFileBytes(DataSpan_t& Buffer, size_t FilePositon) override;
+	virtual bool			ReadFileBytes(std::span<uint8_t>,size_t FilePositon) override;
 
 	int						BytesRemaining()	{	return mContents.size() - mFilePosition;	}
 
