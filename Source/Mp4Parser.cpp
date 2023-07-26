@@ -962,3 +962,115 @@ std::vector<Sample_t> Mp4::DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& Mo
 }
 
 
+
+template<int BYTECOUNT,typename STORAGE>
+bool TBitReader::ReadBytes(STORAGE& Data,int BitCount)
+{
+	//	gr: definitly correct
+	Data = 0;
+	
+	std::vector<uint8_t> Bytes;
+	int ComponentBitCount = BitCount;
+	while ( ComponentBitCount > 0 )
+	{
+		uint8_t Next=0;
+		if ( !Read( Next, std::min(8,ComponentBitCount) ) )
+			return false;
+		Bytes.push_back(Next);
+		ComponentBitCount -= 8;
+	}
+		
+	Data = 0;
+	for ( int i=0;	i<Bytes.size();	i++ )
+	{
+		int Shift = (i * 8);
+		Data |= static_cast<STORAGE>(Bytes[i]) << Shift;
+	}
+
+	STORAGE DataBackwardTest = 0;
+	for ( int i=0;	i<Bytes.size();	i++ )
+	{
+		auto Shift = (Bytes.size()-1-i) * 8;
+		DataBackwardTest |= static_cast<STORAGE>(Bytes[i]) << Shift;
+	}
+
+	//	turns out THIS is the right way
+	Data = DataBackwardTest;
+
+	return true;
+}
+
+bool TBitReader::Read(int& Data,int BitCount)
+{
+	//	break up data
+	if ( BitCount <= 8 )
+	{
+		uint8_t Data8;
+		if ( !Read( Data8, BitCount ) )
+			return false;
+		Data = Data8;
+		return true;
+	}
+	
+	if ( BitCount <= 8 )
+		return ReadBytes<1>( Data, BitCount );
+
+	if ( BitCount <= 16 )
+		return ReadBytes<2>( Data, BitCount );
+
+	if ( BitCount <= 32 )
+		return ReadBytes<4>( Data, BitCount );
+
+	throw std::runtime_error("TBitReader_Lambda::Read not handling > 32bit");
+}
+
+
+bool TBitReader::Read(uint64_t& Data,int BitCount)
+{
+	if ( BitCount <= 8 )
+		return ReadBytes<1>( Data, BitCount );
+
+	if ( BitCount <= 16 )
+		return ReadBytes<2>( Data, BitCount );
+
+	if ( BitCount <= 32 )
+		return ReadBytes<4>( Data, BitCount );
+
+	if ( BitCount <= 64 )
+		return ReadBytes<8>( Data, BitCount );
+
+	throw std::runtime_error("TBitReader::Read not handling > 64bit");
+}
+
+bool TBitReader::Read(uint8_t& Data,int BitCount)
+{
+	if ( BitCount <= 0 )
+		return false;
+	if ( BitCount > 8 )
+		throw std::runtime_error("This function should not be requesting >8 bits");
+
+	//	current byte
+	int CurrentByte = mBitPos / 8;
+	int CurrentBit = mBitPos % 8;
+
+	//	out of range
+	try
+	{
+		Data = mGetByte(CurrentByte);
+	}
+	catch(std::out_of_range& e)
+	{
+		return false;
+	}
+
+	//	move along
+	mBitPos += BitCount;
+
+	//	pick out certain bits
+	//	gr: reverse endianess to what I thought...
+	//Data >>= CurrentBit;
+	Data >>= 8-CurrentBit-BitCount;
+	Data &= (1<<BitCount)-1;
+
+	return true;
+}
