@@ -793,13 +793,23 @@ std::shared_ptr<Codec_t> Mp4::DecodeAtom_SampleDescription(Atom_t& Atom,ReadByte
 	auto* H264Atom = Atom.GetChildAtom(CodecAvc1_t::Fourcc);
 	if ( H264Atom )
 		return DecodeAtom_Avc1(*H264Atom,ReadBytes);
+
+	//	let parent code error if there's no codec specified
+	//	gr: or should this throw? in which case... don't return a pointer
+	if ( Atom.mChildAtoms.empty() )
+		return nullptr;
 	
-	//	should only be one child I think
-	std::stringstream Error;
-	Error << "Don't know how to parse sample codec[s]; ";
-	for ( int c=0;	c<Atom.mChildAtoms.size();	c++ )
-		Error << Atom.mChildAtoms[c].Fourcc << ", ";
-	throw std::runtime_error(Error.str());
+	//	dont error on unhandled codecs
+	auto& CodecAtom = Atom.mChildAtoms[0];
+	
+	std::shared_ptr<Codec_t> Codec( new Codec_t );
+	Codec->mFourcc = CodecAtom.Fourcc;
+
+	//	debug what codecs we're not handling
+	std::Debug << "Unhandled sample codec " << Codec->GetName() << std::endl;
+	return Codec;
+}
+
 std::string Codec_t::GetName()
 {
 	return GetFourccString(mFourcc,true);
