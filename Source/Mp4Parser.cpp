@@ -1,6 +1,7 @@
 #include "Mp4Parser.h"
 #include <iostream>
 #include <sstream>
+#include <array>
 
 namespace std
 {
