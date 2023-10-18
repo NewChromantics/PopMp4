@@ -207,6 +207,7 @@ class Codec_t
 public:
 	virtual ~Codec_t()	{};
 	
+	virtual std::string	GetName();
 	virtual uint32_t	GetSampleDataPrefixSize()	{	return 0;	}
 	
 	uint32_t		mFourcc = 0;
@@ -215,6 +216,8 @@ public:
 
 class CodecAvc1_t : public Codec_t
 {
+public:
+	static constexpr uint32_t	Fourcc = 'avc1';
 public:
 	CodecAvc1_t(DataReader_t& DataReader);
 	

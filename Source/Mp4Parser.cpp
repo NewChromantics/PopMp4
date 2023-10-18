@@ -8,6 +8,9 @@ namespace std
 	//std::stringstream Debug;	//	absorb debug
 }
 
+std::string			GetFourccString(uint32_t Fourcc,bool Reversed=false);
+
+
 //	https://stackoverflow.com/a/61146679/355753
 template <typename T>
 void swapEndian(T& buffer)
@@ -18,7 +21,53 @@ void swapEndian(T& buffer)
 	std::reverse(startIndex, endIndex);
 }
 
+template <typename T>
+inline T SwapEndian(T Value)
+{
+	//	MSVCC
+	//	unsigned long _byteswap_ulong(unsigned long value);
+	//	GCC
+	//uint32_t __builtin_bswap32 (uint32_t x)
+	static_assert(std::is_pod<T>::value, "SwapEndian only for POD types");
+	auto* Start = reinterpret_cast<uint8_t*>(&Value);
+	auto* End = Start + sizeof(T);
+	std::reverse(Start, End);
+	return Value;
+}
 
+static bool IsFourccAscii(uint8_t v)
+{
+	//return isprint(v);
+	//	https://www.asciitable.com/
+	if ( v >= 32 && v <= 126 )
+		return true;
+	
+	return false;
+}
+
+static void GetFourccString(std::stringstream& String,uint32_t Fourcc,bool Reversed)
+{
+	Fourcc = Reversed ? ::SwapEndian(Fourcc) : Fourcc;
+		
+	uint8_t a = (Fourcc>>0) & 0xff;
+	uint8_t b = (Fourcc>>8) & 0xff;
+	uint8_t c = (Fourcc>>16) & 0xff;
+	uint8_t d = (Fourcc>>24) & 0xff;
+	std::array<uint8_t,4> abcd = { a,b,c,d };
+		
+	for ( int i=0;	i<abcd.size();	i++ )
+	{
+		auto Value = abcd[i];
+		if ( IsFourccAscii(Value) )
+		{
+			String << static_cast<char>(Value);
+		}
+		else
+		{
+			String << " 0x" << std::hex << Value << " " << std::dec;
+		}
+	}
+}
 
 
 Atom_t DataReader_t::ReadNextAtom()
@@ -741,7 +790,7 @@ std::shared_ptr<Codec_t> Mp4::DecodeAtom_SampleDescription(Atom_t& Atom,ReadByte
 	//	avc1
 	//		avcC <-- sps etc
 	//		pasp <-- pixel aspect
-	auto* H264Atom = Atom.GetChildAtom('avc1');
+	auto* H264Atom = Atom.GetChildAtom(CodecAvc1_t::Fourcc);
 	if ( H264Atom )
 		return DecodeAtom_Avc1(*H264Atom,ReadBytes);
 	
@@ -751,7 +800,11 @@ std::shared_ptr<Codec_t> Mp4::DecodeAtom_SampleDescription(Atom_t& Atom,ReadByte
 	for ( int c=0;	c<Atom.mChildAtoms.size();	c++ )
 		Error << Atom.mChildAtoms[c].Fourcc << ", ";
 	throw std::runtime_error(Error.str());
+std::string Codec_t::GetName()
+{
+	return GetFourccString(mFourcc,true);
 }
+
 
 CodecAvc1_t::CodecAvc1_t(DataReader_t& DataReader)
 {
