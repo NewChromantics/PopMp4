@@ -211,7 +211,6 @@ public:
 	virtual uint32_t	GetSampleDataPrefixSize()	{	return 0;	}
 	
 	uint32_t		mFourcc = 0;
-	int				mTrackNumber = 0;
 };
 
 class CodecAvc1_t : public Codec_t
@@ -264,15 +263,15 @@ public:
 //	based heavily on https://github.com/NewChromantics/PopEngineCommon/blob/master/Mp4.js
 namespace Mp4
 {
-	void						DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&)> OnSamples,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec);
+	void						DecodeAtom_Moov(Atom_t& Atom,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&,MediaHeader_t&)> OnSamples);
 	MovieHeader_t				DecodeAtom_MovieHeader(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	void						DecodeAtom_Trak(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&)> OnSamples,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec);
-	void						DecodeAtom_Media(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&)> OnSamples,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec);
+	void						DecodeAtom_Trak(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&,MediaHeader_t&)> OnSamples);
+	void						DecodeAtom_Media(Atom_t& Atom,int TrackNumber,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&,MediaHeader_t&)> OnSamples);
 	MediaHeader_t				DecodeAtom_MediaHeader(Atom_t& Atom,MovieHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
-	void						DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&)> OnSamples,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec);
+	void						DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&,MediaHeader_t&)> OnSamples);
 	std::shared_ptr<Codec_t>	DecodeAtom_SampleDescription(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::shared_ptr<Codec_t>	DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
-	std::vector<Sample_t>		DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::shared_ptr<Codec_t> Codec)> OnCodec);
+	std::vector<Sample_t>		DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
 	std::vector<ChunkMeta_t>	DecodeAtom_ChunkMetas(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<uint64_t>		DecodeAtom_ChunkOffsets(Atom_t* ChunkOffsets32Atom,Atom_t* ChunkOffsets64Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<uint64_t>		DecodeAtom_SampleSizes(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
