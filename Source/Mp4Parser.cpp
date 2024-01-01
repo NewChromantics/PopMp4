@@ -272,6 +272,29 @@ bool BufferReader_t::ReadFileBytes(std::span<uint8_t> Buffer,size_t FilePosition
 }
 
 
+ViewReader_t::ViewReader_t(uint64_t ExternalFilePosition,std::span<uint8_t> Contents) :
+	DataReader_t	( ExternalFilePosition ),
+	mContents		( Contents )
+{
+}
+
+bool ViewReader_t::ReadFileBytes(std::span<uint8_t> Buffer,size_t FilePosition)
+{
+	auto ContentsPosition = FilePosition - mExternalFilePosition;
+	if ( ContentsPosition < 0 || ContentsPosition >= mContents.size() )
+	{
+		std::stringstream Error;
+		Error << "Requested x" << Buffer.size() << " from File position (" << ContentsPosition << "=" << FilePosition << "-" << mExternalFilePosition << " out of contents range (" << mContents.size() << ")";
+		throw std::runtime_error(Error.str());
+	}
+	
+	for ( int i=0;	i<Buffer.size();	i++ )
+	{
+		Buffer[i] = mContents[ContentsPosition+i];
+	}
+	return true;
+}
+
 
 bool ExternalReader_t::ReadFileBytes(std::span<uint8_t> Buffer, size_t FilePosition)
 {

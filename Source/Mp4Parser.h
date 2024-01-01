@@ -53,7 +53,7 @@ public:
 	uint64_t		mExternalFilePosition = 0;
 };
 
-//	rename to ExternalReader
+
 class ExternalReader_t : public DataReader_t
 {
 public:
@@ -82,6 +82,19 @@ public:
 	std::vector<uint8_t>	mContents;
 };
 
+
+//	make BufferReader_t use this
+class ViewReader_t : public DataReader_t
+{
+public:
+	ViewReader_t(uint64_t ExternalFilePosition,std::span<uint8_t> Contents);
+
+	virtual bool			ReadFileBytes(std::span<uint8_t>,size_t FilePositon) override;
+
+	int						BytesRemaining()	{	return mContents.size() - mFilePosition;	}
+	
+	std::span<uint8_t>		mContents;
+};
 
 class TBitReader
 {
