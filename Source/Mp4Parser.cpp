@@ -811,10 +811,19 @@ std::shared_ptr<Codec_t> Mp4::DecodeAtom_SampleDescription(Atom_t& Atom,ReadByte
 	//	avc1
 	//		avcC <-- sps etc
 	//		pasp <-- pixel aspect
-	auto* H264Atom = Atom.GetChildAtom(CodecAvc1_t::Fourcc);
-	if ( H264Atom )
-		return DecodeAtom_Avc1(*H264Atom,ReadBytes);
-
+	{
+		auto* H264Atom = Atom.GetChildAtom(CodecAvc1_t::Fourcc);
+		if ( H264Atom )
+			return DecodeAtom_Avc1(*H264Atom,ReadBytes);
+	}
+	
+	if ( false )
+	{
+		auto* H265Atom = Atom.GetChildAtom(CodecHevc_t::Fourcc);
+		if ( H265Atom )
+			return DecodeAtom_Hevc(*H265Atom,ReadBytes);
+	}
+	
 	//	let parent code error if there's no codec specified
 	//	gr: or should this throw? in which case... don't return a pointer
 	if ( Atom.mChildAtoms.empty() )
@@ -910,6 +919,12 @@ std::shared_ptr<Codec_t> Mp4::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadB
 	//pAvc1->mFourcc = Avc1Atom.Fourcc;
 	pAvc1->mFourcc = CodecAvc1_t::Fourcc;	//	avc1
 	return pAvc1;
+}
+
+
+std::shared_ptr<Codec_t> Mp4::DecodeAtom_Hevc(Atom_t& Atom,ReadBytesFunc_t ReadBytes)
+{
+	throw std::runtime_error("DecodeAtom_Hevc todo");
 }
 	
 std::vector<Sample_t> Mp4::DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes)

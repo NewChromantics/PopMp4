@@ -243,6 +243,24 @@ public:
 	std::vector<Pps_t>	mPps;
 };
 
+
+class CodecHevc_t : public Codec_t
+{
+public:
+	static constexpr uint32_t	Fourcc = 'hvc1';
+public:
+	CodecHevc_t(DataReader_t& DataReader);
+	
+	virtual uint32_t	GetSampleDataPrefixSize() override	{	return mLengthMinusOne+1;	}
+
+	uint8_t				mProfile = 0;
+	uint8_t				mCompatbility = 0;
+	uint8_t				mLevel = 0;
+	uint8_t				mLengthMinusOne = 0;
+	std::vector<Sps_t>	mSps;
+	std::vector<Pps_t>	mPps;
+};
+
 class MediaHeader_t
 {
 public:
@@ -284,6 +302,7 @@ namespace Mp4
 	void						DecodeAtom_MediaInfo(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes,std::function<void(std::vector<Sample_t>&,MediaHeader_t&)> OnSamples);
 	std::shared_ptr<Codec_t>	DecodeAtom_SampleDescription(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::shared_ptr<Codec_t>	DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
+	std::shared_ptr<Codec_t>	DecodeAtom_Hevc(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<Sample_t>		DecodeAtom_SampleTable(Atom_t& Atom,MediaHeader_t& MovieHeader,ReadBytesFunc_t ReadBytes);
 	std::vector<ChunkMeta_t>	DecodeAtom_ChunkMetas(Atom_t& Atom,ReadBytesFunc_t ReadBytes);
 	std::vector<uint64_t>		DecodeAtom_ChunkOffsets(Atom_t* ChunkOffsets32Atom,Atom_t* ChunkOffsets64Atom,ReadBytesFunc_t ReadBytes);
