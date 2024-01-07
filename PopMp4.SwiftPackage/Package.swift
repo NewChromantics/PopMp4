@@ -7,7 +7,7 @@ import PackageDescription
 
 
 let package = Package(
-	name: "PopMp4Swift",
+	name: "PopMp4",
 	
 	platforms: [
 		.iOS(.v15),
@@ -17,15 +17,15 @@ let package = Package(
 
 	products: [
 		.library(
-			name: "PopMp4Swift",
+			name: "PopMp4",
 			targets: [
-				"PopMp4Swift"
+				"PopMp4"
 			]),
 	],
 	targets: [
 
 		.target(
-			name: "PopMp4Swift",
+			name: "PopMp4",
 			/* include all targets where .h contents need to be accessible to swift */
 			dependencies: ["PopMp4Objc","PopMp4Framework"],
 			path: "./PopMp4Swift"
@@ -42,7 +42,7 @@ let package = Package(
 			path: "./PopMp4Objc",
 			//publicHeadersPath: ".",	//	not using include/ seems to have some errors resolving symbols? (this may before my extern c's)
 			cxxSettings: [
-				.headerSearchPath("../PopMp4Api/"),	//	this allows headers in same place as .cpp
+				.headerSearchPath("./"),	//	this allows headers in same place as .cpp
 			]
 		)
 		,
