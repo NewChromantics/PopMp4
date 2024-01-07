@@ -3,3 +3,7 @@ xcuserdata/
 
 #   ignore test assets
 *.mp4
+
+
+#   ignore universal framework build files
+build/
