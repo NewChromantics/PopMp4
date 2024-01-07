@@ -1,0 +1,41 @@
+name: Build Apple Universal
+
+env:
+  project: PopMp4
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - '*Test*' 
+
+jobs:
+  Build:
+    name: Apple Universal Framework
+    runs-on: macos-12
+    steps:
+      - name: "Import Apple-Distriubution NewChromantics Signing Certificate"
+        uses: NewChromantics/import-signing-certificate@v1.0.1
+        with:
+          certificate-data: ${{ secrets.APPLE_DIST_NEWCHROMANTICS_P12 }}
+          certificate-passphrase: ${{ secrets.APPLE_DIST_NEWCHROMANTICS_PASSWORD }}
+          keychain-password: "Hello"
+             
+      - uses: actions/checkout@v2
+        with:
+          submodules: "recursive"
+
+      - name: Build Universal
+        uses: NewChromantics/PopAction_BuildApple@v1.0.11
+        with:
+          BuildScheme: ${{ env.project }}_Universal
+          project: ${{ env.project }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          # tsdk: these env vars are set in each of the actions
+          name: ${{ env.UPLOAD_NAME }}
+          path: ${{ env.UPLOAD_DIR }}
