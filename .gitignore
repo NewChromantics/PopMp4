@@ -7,3 +7,4 @@ xcuserdata/
 
 #   ignore universal framework build files
 build/
+**/*.xcframework/

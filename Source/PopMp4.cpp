@@ -68,7 +68,7 @@ DLL_EXPORT void PopMp4_DestroyDecoder(int Instance)
 	}
 }
 
-extern "C" bool PopMp4_PushMp4Data(int Instance,const uint8_t* Data,uint32_t DataSize,bool EndOfFile)
+DLL_EXPORT bool PopMp4_PushMp4Data(int Instance,const uint8_t* Data,uint32_t DataSize,bool EndOfFile)
 {
 	try
 	{
@@ -81,6 +81,32 @@ extern "C" bool PopMp4_PushMp4Data(int Instance,const uint8_t* Data,uint32_t Dat
 	{
 		std::cerr << __FUNCTION__ << " exception:" << e.what() << std::endl;
 		return false;
+	}
+}
+
+
+std::string GetMetaJson()
+{
+	std::stringstream Json;
+	Json << "{\"Error\":\"todo: get meta\"}";
+	return Json.str();
+}
+
+DLL_EXPORT void PopMp4_GetDecoderState(int Instance,char* JsonBuffer,int JsonBufferSize)
+{
+	try
+	{
+		auto pInstance = PopMp4::DecoderInstances.Alloc();
+		//auto Meta = Instance->GetState();
+		
+		auto Json = GetMetaJson();
+		StringCopyToBuffer( Json, JsonBuffer, JsonBufferSize );
+	}
+	catch(std::exception& e)
+	{
+		std::stringstream Json;
+		Json << "{\"Error\":\"" << e.what() << "\"}";
+		StringCopyToBuffer( Json.str(), JsonBuffer, JsonBufferSize );
 	}
 }
 

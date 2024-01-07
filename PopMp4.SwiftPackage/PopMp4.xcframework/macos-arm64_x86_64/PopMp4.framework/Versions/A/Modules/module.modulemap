@@ -1,6 +1,0 @@
-framework module PopMp4 {
-  umbrella header "PopMp4.h"
-  export *
-
-  module * { export * }
-}

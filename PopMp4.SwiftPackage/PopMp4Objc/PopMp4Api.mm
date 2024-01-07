@@ -1,6 +1,3 @@
-//#include "PopMp4Framework.h"
-
-
 #define DLL_EXPORT extern"C"
 //#define DLL_EXPORT
 #include "../PopMp4.xcframework/macos-arm64_x86_64/PopMp4.framework/Versions/A/Headers/PopMp4.h"
@@ -75,3 +72,33 @@ DLL_EXPORT FrameResource* __nonnull SegmentManager_WaitForResourceDownload_Objc(
 	return Resource;
 }
 */
+
+
+DLL_EXPORT int PopMp4_AllocDecoder(NSString* Filename)
+{
+	return ::PopMp4_CreateDecoder();
+}
+
+DLL_EXPORT void PopMp4_FreeDecoder(int Instance)
+{
+	::PopMp4_FreeDecoder(Instance);
+}
+
+//	todo: return a proper struct for swift to use directly
+DLL_EXPORT NSString*__nonnull PopMp4_GetDecodeStateJson(int Instance)
+{
+	std::vector<char> JsonBuffer(100*1024);
+	PopMp4_GetDecoderState( Instance, JsonBuffer.data(), JsonBuffer.size() );
+	
+	auto Json = [NSString stringWithUTF8String: JsonBuffer.data()];
+	auto JsonData = [NSData dataWithBytes:JsonBuffer.data() length:JsonBuffer.size()];
+	
+	NSError* JsonParseError = nil;
+	auto Dictionary = [NSJSONSerialization JSONObjectWithData:JsonData options:NSJSONReadingMutableContainers error:&JsonParseError];
+	
+	//return Dictionary;
+	return Json;
+}
+
+
+

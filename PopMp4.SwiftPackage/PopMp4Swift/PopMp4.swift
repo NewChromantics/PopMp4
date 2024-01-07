@@ -37,22 +37,23 @@ public struct Mp4Meta: Decodable
 //	based on public class CondenseStream
 class PopMp4Instance
 {
-	var Instance : CInt = 0
+	var instance : CInt = 0
 	
 	//	these will come out of CAPI calls
-	var AtomTree : [String] = ["Hello"]
-	var AtomTreeCounter = 0
+	var atomTree : [String] = ["Hello"]
+	var atomTreeCounter = 0
 	
 	init(Filename:String) throws
 	{
-		//self.Instance = PopMp4Decoder_AllocWithOption(Filename, "{}" )
-		if ( self.Instance == 0 )
+		self.instance = PopMp4_AllocDecoder(Filename)
+
+		if ( self.instance == 0 )
 		{
 			//throw PopMp4Error("Failed to allocate MP4 decoder for \(Filename)")
 		}
 		
 		var Version = PopMp4_GetVersion()
-		print("Allocated instance \(self.Instance); PopMp4 version \(Version))")
+		print("Allocated instance \(self.instance); PopMp4 version \(Version))")
 	}
 	
 	//	returns null when finished/eof
@@ -69,18 +70,18 @@ class PopMp4Instance
 		{
 			return Mp4Meta( Error:error.localizedDescription, AtomTree:nil, EndOfFile:true )
 		}
-		AtomTreeCounter += 1
+		atomTreeCounter += 1
 		
 		//	send eof
-		if ( AtomTreeCounter >= 1000 )
+		if ( atomTreeCounter >= 1000 )
 		{
 			return Mp4Meta( Error:nil, AtomTree:nil, EndOfFile:true )
 		}
 		
-		var NewAtom = "Atom #\(AtomTreeCounter)"
-		AtomTree.append(NewAtom)
+		var NewAtom = "Atom #\(atomTreeCounter)"
+		atomTree.append(NewAtom)
 			
-		return Mp4Meta( Error:nil, AtomTree:AtomTree, EndOfFile:false )
+		return Mp4Meta( Error:nil, AtomTree:atomTree, EndOfFile:false )
 	}
 			
 }
