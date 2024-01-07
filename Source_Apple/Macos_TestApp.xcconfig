@@ -1,0 +1,13 @@
+#include "./Apple.xcconfig"
+
+//PRODUCT_NAME = $(TARGET_NAME)
+PRODUCT_NAME = PopMp4_TestApp
+SDKROOT = macosx
+
+ENABLE_HARDENED_RUNTIME = YES
+
+//	enable sandbox so it can be used in mac app store
+//ENABLE_APP_SANDBOX = YES
+//CODE_SIGN_ENTITLEMENTS = Source_Macos/CRStreamer_Macos.entitlements
+
+GCC_PREPROCESSOR_DEFINITIONS = $(GCC_PREPROCESSOR_DEFINITIONS) $(inherited) TARGET_MACOS

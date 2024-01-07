@@ -1,0 +1,72 @@
+#include "./Version.xcconfig"
+
+//	gr: see if all platforms can use the same one
+PRODUCT_BUNDLE_IDENTIFIER = com.newchromantics.popmp4
+
+
+//	gr: can't use SDKROOT to product different target names, paths are all good, but final product name is Xcode.app(!)
+//	c99extidentifier removes - and other non-compatible chars
+//PRODUCT_NAME = CRStreamer_$(SDKROOT)
+//PRODUCT_NAME = $(TARGET_NAME:c99extidentifier)_$(SDKROOT)
+PRODUCT_NAME = $(TARGET_NAME:c99extidentifier)
+
+IPHONEOS_DEPLOYMENT_TARGET = 14.0	//	std::atomic.wait() support
+TVOS_DEPLOYMENT_TARGET = 14.0	//	std::atomic.wait() support
+
+//	pre-10.15 ofstream isn't supported(!)
+//MACOSX_DEPLOYMENT_TARGET = 10.15
+MACOSX_DEPLOYMENT_TARGET = 11.0	//	std::atomic.wait() support
+
+
+CLANG_CXX_LANGUAGE_STANDARD=c++20
+CLANG_CXX_LIBRARY = libc++
+GCC_C_LANGUAGE_STANDARD=c99
+
+//	from 2022/xcode 14, bitcode is required to be OFF on IOS
+//	but with bitcode, we end up getting xcode12 bitcode vs xcode13 bitcode errors, which we want to avoid
+ENABLE_BITCODE = NO
+
+
+HEADER_SEARCH_PATHS = $(HEADER_SEARCH_PATHS) $(inherited)
+LIBRARY_SEARCH_PATHS = $(inherited)
+
+DEBUG_INFORMATION_FORMAT = dwarf
+
+TARGET_ARCH[arch=x86_64] = TARGET_ARCH_X86_64
+TARGET_ARCH[arch=arm64] = TARGET_ARCH_ARM
+
+GCC_PREPROCESSOR_DEFINITIONS = $(TARGET_ARCH) $(GCC_PREPROCESSOR_DEFINITIONS) $(inherited)
+
+
+
+//	make explicit exports visible and other symbols hidden by default
+OTHER_CPLUSPLUSFLAGS=-fvisibility=hidden
+OTHER_CFLAGS=-fvisibility=hidden
+GCC_SYMBOLS_PRIVATE_EXTERN=YES
+
+//	hide or promote various warnings
+OTHER_CPLUSPLUSFLAGS = $(OTHER_CPLUSPLUSFLAGS) -Werror=return-stack-address -Wno-unreachable-code
+
+//	we have a lot of these, hidden for now, but where important, we may want a size_cast() function to safely cast (ie. throw) when important
+OTHER_CPLUSPLUSFLAGS = $(OTHER_CPLUSPLUSFLAGS) -Wno-shorten-64-to-32
+
+//	hide unused variables, these tend to be optimised out anyway. Restore if we really audit the code one day
+OTHER_CPLUSPLUSFLAGS = $(OTHER_CPLUSPLUSFLAGS) -Wno-unused-variable
+
+GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES
+CLANG_WARN_ASSIGN_ENUM = YES
+CLANG_WARN_ATOMIC_IMPLICIT_SEQ_CST = YES
+CLANG_WARN_COMPLETION_HANDLER_MISUSE = YES
+//CLANG_WARN_CXX0X_EXTENSIONS = NO
+CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES
+CLANG_WARN__EXIT_TIME_DESTRUCTORS = YES
+GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES
+GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES
+GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+GCC_WARN_PEDANTIC = YES
+GCC_WARN_SHADOW = YES
+CLANG_WARN__EXIT_TIME_DESTRUCTORS = NO //	restore this one day as an error
+
+
+GCC_PREPROCESSOR_DEFINITIONS = DLL_EXPORT=extern\"C\"\ __attribute__((visibility(\"default\"))) $(GCC_PREPROCESSOR_DEFINITIONS)
+

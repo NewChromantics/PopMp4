@@ -7,8 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BF43661E2B4AE82000009182 /* TestApp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BF4366172B4AE80B00009182 /* TestApp.cpp */; };
+		BF4366222B4AF83F00009182 /* Mp4Decoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BF43661F2B4AEC6500009182 /* Mp4Decoder.cpp */; };
 		BFAFE14926F0CD8800A8F5C8 /* Mp4Parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */; };
-		BFC7E7B426F0B6500032E0DB /* TestApp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC7E7B326F0B6500032E0DB /* TestApp.cpp */; };
 		BFC7E7BD26F0B67F0032E0DB /* PopMp4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */; };
 /* End PBXBuildFile section */
 
@@ -25,10 +26,19 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Mp4Parser.h; sourceTree = "<group>"; };
+		BF4366152B4ADD6C00009182 /* Readme.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Readme.md; sourceTree = "<group>"; };
+		BF4366172B4AE80B00009182 /* TestApp.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = TestApp.cpp; sourceTree = "<group>"; };
+		BF4366192B4AE80B00009182 /* Macos_TestApp.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Macos_TestApp.xcconfig; sourceTree = "<group>"; };
+		BF43661A2B4AE80B00009182 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
+		BF43661B2B4AE80B00009182 /* Apple.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Apple.xcconfig; sourceTree = "<group>"; };
+		BF43661C2B4AE80B00009182 /* BuildUniversalFramework.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = BuildUniversalFramework.sh; sourceTree = "<group>"; };
+		BF43661D2B4AE81400009182 /* PopMp4.SwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = PopMp4.SwiftPackage; sourceTree = "<group>"; };
+		BF43661F2B4AEC6500009182 /* Mp4Decoder.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Mp4Decoder.cpp; sourceTree = "<group>"; };
+		BF4366202B4AEC6500009182 /* Mp4Decoder.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Mp4Decoder.hpp; sourceTree = "<group>"; };
+		BF4366212B4AEF6C00009182 /* InstanceManager.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = InstanceManager.hpp; sourceTree = "<group>"; };
+		BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Mp4Parser.hpp; sourceTree = "<group>"; };
 		BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Mp4Parser.cpp; sourceTree = "<group>"; };
-		BFC7E7B026F0B6500032E0DB /* PopMp4 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PopMp4; sourceTree = BUILT_PRODUCTS_DIR; };
-		BFC7E7B326F0B6500032E0DB /* TestApp.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = TestApp.cpp; sourceTree = "<group>"; };
+		BFC7E7B026F0B6500032E0DB /* PopMp4_TestApp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PopMp4_TestApp; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PopMp4.cpp; sourceTree = "<group>"; };
 		BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PopMp4.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -44,18 +54,41 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		BF4366162B4AE80B00009182 /* Source_TestApp */ = {
+			isa = PBXGroup;
+			children = (
+				BF4366172B4AE80B00009182 /* TestApp.cpp */,
+			);
+			path = Source_TestApp;
+			sourceTree = "<group>";
+		};
+		BF4366182B4AE80B00009182 /* Source_Apple */ = {
+			isa = PBXGroup;
+			children = (
+				BF4366192B4AE80B00009182 /* Macos_TestApp.xcconfig */,
+				BF43661A2B4AE80B00009182 /* Version.xcconfig */,
+				BF43661B2B4AE80B00009182 /* Apple.xcconfig */,
+				BF43661C2B4AE80B00009182 /* BuildUniversalFramework.sh */,
+			);
+			path = Source_Apple;
+			sourceTree = "<group>";
+		};
 		BFC7E7A726F0B6500032E0DB = {
 			isa = PBXGroup;
 			children = (
-				BFC7E7B226F0B6500032E0DB /* Source */,
+				BF43661D2B4AE81400009182 /* PopMp4.SwiftPackage */,
 				BFC7E7B126F0B6500032E0DB /* Products */,
+				BF4366152B4ADD6C00009182 /* Readme.md */,
+				BFC7E7B226F0B6500032E0DB /* Source */,
+				BF4366182B4AE80B00009182 /* Source_Apple */,
+				BF4366162B4AE80B00009182 /* Source_TestApp */,
 			);
 			sourceTree = "<group>";
 		};
 		BFC7E7B126F0B6500032E0DB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				BFC7E7B026F0B6500032E0DB /* PopMp4 */,
+				BFC7E7B026F0B6500032E0DB /* PopMp4_TestApp */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -63,11 +96,13 @@
 		BFC7E7B226F0B6500032E0DB /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				BF4366212B4AEF6C00009182 /* InstanceManager.hpp */,
+				BF43661F2B4AEC6500009182 /* Mp4Decoder.cpp */,
+				BF4366202B4AEC6500009182 /* Mp4Decoder.hpp */,
 				BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */,
-				BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.h */,
+				BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.hpp */,
 				BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */,
 				BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */,
-				BFC7E7B326F0B6500032E0DB /* TestApp.cpp */,
 			);
 			path = Source;
 			sourceTree = "<group>";
@@ -75,9 +110,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		BFC7E7AF26F0B6500032E0DB /* PopMp4 */ = {
+		BFC7E7AF26F0B6500032E0DB /* PopMp4_TestApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BFC7E7B726F0B6500032E0DB /* Build configuration list for PBXNativeTarget "PopMp4" */;
+			buildConfigurationList = BFC7E7B726F0B6500032E0DB /* Build configuration list for PBXNativeTarget "PopMp4_TestApp" */;
 			buildPhases = (
 				BFC7E7AC26F0B6500032E0DB /* Sources */,
 				BFC7E7AD26F0B6500032E0DB /* Frameworks */,
@@ -87,9 +122,9 @@
 			);
 			dependencies = (
 			);
-			name = PopMp4;
+			name = PopMp4_TestApp;
 			productName = PopMp4;
-			productReference = BFC7E7B026F0B6500032E0DB /* PopMp4 */;
+			productReference = BFC7E7B026F0B6500032E0DB /* PopMp4_TestApp */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -118,7 +153,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				BFC7E7AF26F0B6500032E0DB /* PopMp4 */,
+				BFC7E7AF26F0B6500032E0DB /* PopMp4_TestApp */,
 			);
 		};
 /* End PBXProject section */
@@ -128,8 +163,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BF43661E2B4AE82000009182 /* TestApp.cpp in Sources */,
 				BFAFE14926F0CD8800A8F5C8 /* Mp4Parser.cpp in Sources */,
-				BFC7E7B426F0B6500032E0DB /* TestApp.cpp in Sources */,
+				BF4366222B4AF83F00009182 /* Mp4Decoder.cpp in Sources */,
 				BFC7E7BD26F0B67F0032E0DB /* PopMp4.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -191,8 +227,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx;
+				ONLY_ACTIVE_ARCH = NO;
 			};
 			name = Debug;
 		};
@@ -244,27 +279,25 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				SDKROOT = macosx;
+				ONLY_ACTIVE_ARCH = NO;
 			};
 			name = Release;
 		};
 		BFC7E7B826F0B6500032E0DB /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BF4366192B4AE80B00009182 /* Macos_TestApp.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = X52DR36JY2;
-				ENABLE_HARDENED_RUNTIME = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
 		};
 		BFC7E7B926F0B6500032E0DB /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BF4366192B4AE80B00009182 /* Macos_TestApp.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = X52DR36JY2;
-				ENABLE_HARDENED_RUNTIME = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -280,7 +313,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BFC7E7B726F0B6500032E0DB /* Build configuration list for PBXNativeTarget "PopMp4" */ = {
+		BFC7E7B726F0B6500032E0DB /* Build configuration list for PBXNativeTarget "PopMp4_TestApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BFC7E7B826F0B6500032E0DB /* Debug */,

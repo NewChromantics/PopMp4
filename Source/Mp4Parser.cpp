@@ -1,11 +1,11 @@
-#include "Mp4Parser.h"
+#include "Mp4Parser.hpp"
 #include <iostream>
 #include <sstream>
 #include <array>
 
 namespace std
 {
-	static auto& Debug = std::cout;		//	debug to stout
+	static auto& Debug = std::cerr;		//	debug to stout
 	//std::stringstream Debug;	//	absorb debug
 }
 
@@ -1168,3 +1168,74 @@ bool TBitReader::Read(uint8_t& Data,int BitCount)
 
 	return true;
 }
+
+
+
+
+void WriteHex(std::ostream& String,uint8_t Value)
+{
+	String << "0x";
+	
+	auto a = (Value >> 4) & 0xf;
+	auto b = (Value >> 0) & 0xf;
+	
+	if ( a < 10 )
+		String << a;
+	else
+		String << ('a'+(a-10));
+	
+	if ( b < 10 )
+		String << b;
+	else
+		String << ('a'+(b-10));
+	
+}
+
+std::string GetFourccsString(std::span<uint32_t> Fourccs,bool Reversed)
+{
+	auto IsAscii = [](uint8_t v)
+	{
+		return isprint(v);
+		//if ( v >= 'a' && v <= 'z' )	return true;
+		//if ( v >= 'A' && v <= 'Z' )	return true;
+		//if ( v >= 'a' && v <= 'z' )	return true;
+	};
+	
+	std::stringstream String;
+	for ( auto Fourcc : Fourccs )
+	{
+		Fourcc = Reversed ? ::SwapEndian(Fourcc) : Fourcc;
+		
+		uint8_t a = (Fourcc>>0) & 0xff;
+		uint8_t b = (Fourcc>>8) & 0xff;
+		uint8_t c = (Fourcc>>16) & 0xff;
+		uint8_t d = (Fourcc>>24) & 0xff;
+		std::array<uint8_t,4> abcd = { a,b,c,d };
+		
+		for ( int i=0;	i<abcd.size();	i++ )
+		{
+			auto Value = abcd[i];
+			if ( IsFourccAscii(Value) )
+			{
+				String << static_cast<char>(Value);
+			}
+			else
+			{
+				String << " ";
+				WriteHex( String, Value );
+			}
+		}
+	}
+	return String.str();
+}
+
+std::string GetFourccString(uint32_t Fourcc,bool Reversed)
+{
+	//std::array<uint32_t,1> Fourccs = { Fourcc };
+	//uint32_t _Fourccs[1]={Fourcc};
+	//std::span<uint32_t> Fourccs( _Fourccs, 1 );
+	std::span<uint32_t> Fourccs( &Fourcc, 1 );
+	return GetFourccsString( Fourccs, Reversed );
+}
+
+

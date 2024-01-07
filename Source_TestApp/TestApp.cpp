@@ -1,11 +1,9 @@
 #include "PopMp4.h"
 #include <iostream>
-#include <fstream>
 #include <sstream>
-#include <iostream>
-#include <array>
-#include <thread>
 
+
+/*
 void InputThread(int Instance,std::istream& Input)
 {
 	std::cout << "starting input thread..." << std::endl;
@@ -110,5 +108,23 @@ int main(int argc, const char * argv[])
 	if (OutputThread.joinable())
 		OutputThread.join();
 	
+	return 0;
+}
+*/
+
+std::string GetVersion()
+{
+	auto Version = PopMp4_GetVersionThousand();
+	auto VersionMajor = (Version / (1000*1000)) % 1000;
+	auto VersionMinor = (Version / (1000)) % 1000;
+	auto VersionPatch = (Version / 1) % 1000;
+	std::stringstream VersionString;
+	VersionString << VersionMajor << "." << VersionMinor << "." << VersionPatch;
+	return VersionString.str();
+}
+
+int main(int argc, const char * argv[])
+{
+	std::cout << "PopMp4 version " << GetVersion() << std::endl;
 	return 0;
 }
