@@ -136,13 +136,13 @@
 		BFC7E7A726F0B6500032E0DB = {
 			isa = PBXGroup;
 			children = (
+				BF4366322B4AFA5F00009182 /* Frameworks */,
 				BF43661D2B4AE81400009182 /* PopMp4.SwiftPackage */,
 				BFC7E7B126F0B6500032E0DB /* Products */,
 				BF4366152B4ADD6C00009182 /* Readme.md */,
 				BFC7E7B226F0B6500032E0DB /* Source */,
 				BF4366182B4AE80B00009182 /* Source_Apple */,
 				BF4366162B4AE80B00009182 /* Source_TestApp */,
-				BF4366322B4AFA5F00009182 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
