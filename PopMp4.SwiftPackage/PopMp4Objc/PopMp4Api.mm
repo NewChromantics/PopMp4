@@ -1,7 +1,15 @@
-#include "PopMp4Framework.h"
+//#include "PopMp4Framework.h"
+
+
+#define DLL_EXPORT extern"C"
+//#define DLL_EXPORT
+#include "../PopMp4.xcframework/macos-arm64_x86_64/PopMp4.framework/Versions/A/Headers/PopMp4.h"
+
+//#include "PopMp4.h"
 #import "include/PopMp4Api.h"
 #import <Foundation/Foundation.h>
 #include <array>
+
 
 @implementation FrameResource
 

@@ -27,7 +27,7 @@ let package = Package(
 		.target(
 			name: "PopMp4Swift",
 			/* include all targets where .h contents need to be accessible to swift */
-			dependencies: ["PopMp4Api","PopMp4Objc","PopMp4Framework"],
+			dependencies: ["PopMp4Objc","PopMp4Framework"],
 			path: "./PopMp4Swift"
 		),
 		
@@ -38,13 +38,13 @@ let package = Package(
 	
 		/* Seem to need this target, just to allow framework headers to be included, so swift recognises c headers in framework
 			I cannot make publicHeadersPath point at a framework headers directory.
-		 */
+		 
 		.target(
 			name: "PopMp4Api",
 			//dependencies: ["PopMp4Framework"],	//	not neccessary, but makes sense to be clear
 			path: "./PopMp4Api",
 			publicHeadersPath: "."
-		),
+		),*/
 		
 		.target(
 			name: "PopMp4Objc",

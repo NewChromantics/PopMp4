@@ -3,12 +3,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#if !defined(DLL_EXPORT) && __cplusplus
-#define DLL_EXPORT extern"c"
-#elif !defined(DLL_EXPORT)
-#define DLL_EXPORT
-#endif
-
 #if !defined(DLL_EXPORT)
 #error no export
 #endif
