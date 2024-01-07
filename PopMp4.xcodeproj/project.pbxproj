@@ -3,17 +3,41 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		BF43661E2B4AE82000009182 /* TestApp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BF4366172B4AE80B00009182 /* TestApp.cpp */; };
-		BF4366222B4AF83F00009182 /* Mp4Decoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BF43661F2B4AEC6500009182 /* Mp4Decoder.cpp */; };
-		BFAFE14926F0CD8800A8F5C8 /* Mp4Parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */; };
-		BFC7E7BD26F0B67F0032E0DB /* PopMp4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */; };
+		BF43662F2B4AFA4500009182 /* Mp4Decoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BF43661F2B4AEC6500009182 /* Mp4Decoder.cpp */; };
+		BF4366302B4AFA4800009182 /* Mp4Parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */; };
+		BF4366312B4AFA4A00009182 /* PopMp4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */; };
+		BF4366332B4AFA5F00009182 /* PopMp4.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BF4366282B4AFA2E00009182 /* PopMp4.framework */; };
+		BF4366342B4AFA5F00009182 /* PopMp4.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = BF4366282B4AFA2E00009182 /* PopMp4.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		BF4366392B4AFCF500009182 /* PopMp4.h in Headers */ = {isa = PBXBuildFile; fileRef = BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		BF4366352B4AFA6000009182 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BFC7E7A826F0B6500032E0DB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BF4366272B4AFA2E00009182;
+			remoteInfo = PopMp4;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXCopyFilesBuildPhase section */
+		BF4366372B4AFA6000009182 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				BF4366342B4AFA5F00009182 /* PopMp4.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BFC7E7AE26F0B6500032E0DB /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -36,6 +60,9 @@
 		BF43661F2B4AEC6500009182 /* Mp4Decoder.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Mp4Decoder.cpp; sourceTree = "<group>"; };
 		BF4366202B4AEC6500009182 /* Mp4Decoder.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Mp4Decoder.hpp; sourceTree = "<group>"; };
 		BF4366212B4AEF6C00009182 /* InstanceManager.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = InstanceManager.hpp; sourceTree = "<group>"; };
+		BF4366282B4AFA2E00009182 /* PopMp4.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PopMp4.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		BF43662A2B4AFA2E00009182 /* PopMp4Framework.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PopMp4Framework.h; sourceTree = "<group>"; };
+		BF4366382B4AFAFE00009182 /* Macos_Framework.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Macos_Framework.xcconfig; sourceTree = "<group>"; };
 		BFAFE14726F0CD8800A8F5C8 /* Mp4Parser.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Mp4Parser.hpp; sourceTree = "<group>"; };
 		BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Mp4Parser.cpp; sourceTree = "<group>"; };
 		BFC7E7B026F0B6500032E0DB /* PopMp4_TestApp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PopMp4_TestApp; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -44,10 +71,18 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		BF4366252B4AFA2E00009182 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BFC7E7AD26F0B6500032E0DB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BF4366332B4AFA5F00009182 /* PopMp4.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,12 +100,21 @@
 		BF4366182B4AE80B00009182 /* Source_Apple */ = {
 			isa = PBXGroup;
 			children = (
+				BF43662A2B4AFA2E00009182 /* PopMp4Framework.h */,
 				BF4366192B4AE80B00009182 /* Macos_TestApp.xcconfig */,
+				BF4366382B4AFAFE00009182 /* Macos_Framework.xcconfig */,
 				BF43661A2B4AE80B00009182 /* Version.xcconfig */,
 				BF43661B2B4AE80B00009182 /* Apple.xcconfig */,
 				BF43661C2B4AE80B00009182 /* BuildUniversalFramework.sh */,
 			);
 			path = Source_Apple;
+			sourceTree = "<group>";
+		};
+		BF4366322B4AFA5F00009182 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		BFC7E7A726F0B6500032E0DB = {
@@ -82,6 +126,7 @@
 				BFC7E7B226F0B6500032E0DB /* Source */,
 				BF4366182B4AE80B00009182 /* Source_Apple */,
 				BF4366162B4AE80B00009182 /* Source_TestApp */,
+				BF4366322B4AFA5F00009182 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -89,6 +134,7 @@
 			isa = PBXGroup;
 			children = (
 				BFC7E7B026F0B6500032E0DB /* PopMp4_TestApp */,
+				BF4366282B4AFA2E00009182 /* PopMp4.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -109,7 +155,36 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXHeadersBuildPhase section */
+		BF4366232B4AFA2E00009182 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BF4366392B4AFCF500009182 /* PopMp4.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
 /* Begin PBXNativeTarget section */
+		BF4366272B4AFA2E00009182 /* PopMp4 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BF43662C2B4AFA2E00009182 /* Build configuration list for PBXNativeTarget "PopMp4" */;
+			buildPhases = (
+				BF4366232B4AFA2E00009182 /* Headers */,
+				BF4366242B4AFA2E00009182 /* Sources */,
+				BF4366252B4AFA2E00009182 /* Frameworks */,
+				BF4366262B4AFA2E00009182 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PopMp4;
+			productName = PopMp4;
+			productReference = BF4366282B4AFA2E00009182 /* PopMp4.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		BFC7E7AF26F0B6500032E0DB /* PopMp4_TestApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = BFC7E7B726F0B6500032E0DB /* Build configuration list for PBXNativeTarget "PopMp4_TestApp" */;
@@ -117,10 +192,12 @@
 				BFC7E7AC26F0B6500032E0DB /* Sources */,
 				BFC7E7AD26F0B6500032E0DB /* Frameworks */,
 				BFC7E7AE26F0B6500032E0DB /* CopyFiles */,
+				BF4366372B4AFA6000009182 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BF4366362B4AFA6000009182 /* PBXTargetDependency */,
 			);
 			name = PopMp4_TestApp;
 			productName = PopMp4;
@@ -133,8 +210,12 @@
 		BFC7E7A826F0B6500032E0DB /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1220;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1520;
 				TargetAttributes = {
+					BF4366272B4AFA2E00009182 = {
+						CreatedOnToolsVersion = 15.2;
+					};
 					BFC7E7AF26F0B6500032E0DB = {
 						CreatedOnToolsVersion = 12.2;
 					};
@@ -154,25 +235,104 @@
 			projectRoot = "";
 			targets = (
 				BFC7E7AF26F0B6500032E0DB /* PopMp4_TestApp */,
+				BF4366272B4AFA2E00009182 /* PopMp4 */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		BF4366262B4AFA2E00009182 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
+		BF4366242B4AFA2E00009182 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BF4366302B4AFA4800009182 /* Mp4Parser.cpp in Sources */,
+				BF4366312B4AFA4A00009182 /* PopMp4.cpp in Sources */,
+				BF43662F2B4AFA4500009182 /* Mp4Decoder.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BFC7E7AC26F0B6500032E0DB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				BF43661E2B4AE82000009182 /* TestApp.cpp in Sources */,
-				BFAFE14926F0CD8800A8F5C8 /* Mp4Parser.cpp in Sources */,
-				BF4366222B4AF83F00009182 /* Mp4Decoder.cpp in Sources */,
-				BFC7E7BD26F0B67F0032E0DB /* PopMp4.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		BF4366362B4AFA6000009182 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BF4366272B4AFA2E00009182 /* PopMp4 */;
+			targetProxy = BF4366352B4AFA6000009182 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		BF43662D2B4AFA2E00009182 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BF4366382B4AFAFE00009182 /* Macos_Framework.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = X52DR36JY2;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BF43662E2B4AFA2E00009182 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BF4366382B4AFAFE00009182 /* Macos_Framework.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = X52DR36JY2;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		BFC7E7B526F0B6500032E0DB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -289,6 +449,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = X52DR36JY2;
+				ENABLE_HARDENED_RUNTIME = NO;
 			};
 			name = Debug;
 		};
@@ -298,12 +459,22 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = X52DR36JY2;
+				ENABLE_HARDENED_RUNTIME = NO;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		BF43662C2B4AFA2E00009182 /* Build configuration list for PBXNativeTarget "PopMp4" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BF43662D2B4AFA2E00009182 /* Debug */,
+				BF43662E2B4AFA2E00009182 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		BFC7E7AB26F0B6500032E0DB /* Build configuration list for PBXProject "PopMp4" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

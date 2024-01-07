@@ -2,9 +2,12 @@
 
 //PRODUCT_NAME = $(TARGET_NAME)
 PRODUCT_NAME = PopMp4_TestApp
+PRODUCT_BUNDLE_IDENTIFIER = com.newchromantics.popmp4_testapp
+
+
 SDKROOT = macosx
 
-ENABLE_HARDENED_RUNTIME = YES
+ENABLE_HARDENED_RUNTIME = NO	//	currently doesn't like signing of framework vs app
 
 //	enable sandbox so it can be used in mac app store
 //ENABLE_APP_SANDBOX = YES
