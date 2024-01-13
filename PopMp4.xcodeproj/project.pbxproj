@@ -28,6 +28,8 @@
 		BF4366332B4AFA5F00009182 /* PopMp4.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BF4366282B4AFA2E00009182 /* PopMp4.framework */; };
 		BF4366342B4AFA5F00009182 /* PopMp4.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = BF4366282B4AFA2E00009182 /* PopMp4.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		BF4366392B4AFCF500009182 /* PopMp4.h in Headers */ = {isa = PBXBuildFile; fileRef = BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		BFFF91902B52EE880096803A /* gtest-all.cc in Sources */ = {isa = PBXBuildFile; fileRef = BFFF918F2B52EE880096803A /* gtest-all.cc */; };
+		BFFF91922B52EF600096803A /* TestData in CopyFiles */ = {isa = PBXBuildFile; fileRef = BFFF91912B52EF3E0096803A /* TestData */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,12 +56,13 @@
 		};
 		BFC7E7AE26F0B6500032E0DB /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
+			buildActionMask = 12;
+			dstPath = "";
+			dstSubfolderSpec = 16;
 			files = (
+				BFFF91922B52EF600096803A /* TestData in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -83,6 +86,8 @@
 		BFC7E7B026F0B6500032E0DB /* PopMp4_TestApp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PopMp4_TestApp; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFC7E7BC26F0B67F0032E0DB /* PopMp4.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PopMp4.cpp; sourceTree = "<group>"; };
 		BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PopMp4.h; sourceTree = "<group>"; };
+		BFFF918F2B52EE880096803A /* gtest-all.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "gtest-all.cc"; path = "googletest/googletest/src/gtest-all.cc"; sourceTree = "<group>"; };
+		BFFF91912B52EF3E0096803A /* TestData */ = {isa = PBXFileReference; lastKnownFileType = folder; path = TestData; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,6 +112,7 @@
 		BF4366162B4AE80B00009182 /* Source_TestApp */ = {
 			isa = PBXGroup;
 			children = (
+				BFFF918E2B52EE7B0096803A /* googletest */,
 				BF4366172B4AE80B00009182 /* TestApp.cpp */,
 			);
 			path = Source_TestApp;
@@ -143,6 +149,7 @@
 				BFC7E7B226F0B6500032E0DB /* Source */,
 				BF4366182B4AE80B00009182 /* Source_Apple */,
 				BF4366162B4AE80B00009182 /* Source_TestApp */,
+				BFFF91912B52EF3E0096803A /* TestData */,
 			);
 			sourceTree = "<group>";
 		};
@@ -167,6 +174,14 @@
 				BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */,
 			);
 			path = Source;
+			sourceTree = "<group>";
+		};
+		BFFF918E2B52EE7B0096803A /* googletest */ = {
+			isa = PBXGroup;
+			children = (
+				BFFF918F2B52EE880096803A /* gtest-all.cc */,
+			);
+			name = googletest;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -307,6 +322,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BF43661E2B4AE82000009182 /* TestApp.cpp in Sources */,
+				BFFF91902B52EE880096803A /* gtest-all.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
