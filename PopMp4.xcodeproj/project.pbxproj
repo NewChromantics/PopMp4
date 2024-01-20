@@ -21,6 +21,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		BF18BBB02B55AD1E00A0CDDF /* PopJson.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BF18BBAE2B55AD1E00A0CDDF /* PopJson.cpp */; };
 		BF43661E2B4AE82000009182 /* TestApp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BF4366172B4AE80B00009182 /* TestApp.cpp */; };
 		BF43662F2B4AFA4500009182 /* Mp4Decoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BF43661F2B4AEC6500009182 /* Mp4Decoder.cpp */; };
 		BF4366302B4AFA4800009182 /* Mp4Parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFAFE14826F0CD8800A8F5C8 /* Mp4Parser.cpp */; };
@@ -30,6 +31,7 @@
 		BF4366392B4AFCF500009182 /* PopMp4.h in Headers */ = {isa = PBXBuildFile; fileRef = BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BFFF91902B52EE880096803A /* gtest-all.cc in Sources */ = {isa = PBXBuildFile; fileRef = BFFF918F2B52EE880096803A /* gtest-all.cc */; };
 		BFFF91922B52EF600096803A /* TestData in CopyFiles */ = {isa = PBXBuildFile; fileRef = BFFF91912B52EF3E0096803A /* TestData */; };
+		BFFF91972B545DF10096803A /* PopJson.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BFFF91952B545DEC0096803A /* PopJson.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +69,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		BF18BBAD2B55AD1E00A0CDDF /* PopJson.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = PopJson.hpp; path = Source_TestApp/PopJson/PopJson.hpp; sourceTree = SOURCE_ROOT; };
+		BF18BBAE2B55AD1E00A0CDDF /* PopJson.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = PopJson.cpp; path = Source_TestApp/PopJson/PopJson.cpp; sourceTree = SOURCE_ROOT; };
 		BF4366152B4ADD6C00009182 /* Readme.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Readme.md; sourceTree = "<group>"; };
 		BF4366172B4AE80B00009182 /* TestApp.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = TestApp.cpp; sourceTree = "<group>"; };
 		BF4366192B4AE80B00009182 /* Macos_TestApp.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Macos_TestApp.xcconfig; sourceTree = "<group>"; };
@@ -88,6 +92,8 @@
 		BFC7E7BF26F0B68E0032E0DB /* PopMp4.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PopMp4.h; sourceTree = "<group>"; };
 		BFFF918F2B52EE880096803A /* gtest-all.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "gtest-all.cc"; path = "googletest/googletest/src/gtest-all.cc"; sourceTree = "<group>"; };
 		BFFF91912B52EF3E0096803A /* TestData */ = {isa = PBXFileReference; lastKnownFileType = folder; path = TestData; sourceTree = "<group>"; };
+		BFFF91942B545DEC0096803A /* PopJson.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = PopJson.hpp; path = PopJson/PopJson.hpp; sourceTree = "<group>"; };
+		BFFF91952B545DEC0096803A /* PopJson.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PopJson.cpp; path = PopJson/PopJson.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,9 +115,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		BF18BBAC2B55AD1100A0CDDF /* PopJson */ = {
+			isa = PBXGroup;
+			children = (
+				BF18BBAE2B55AD1E00A0CDDF /* PopJson.cpp */,
+				BF18BBAD2B55AD1E00A0CDDF /* PopJson.hpp */,
+			);
+			name = PopJson;
+			sourceTree = "<group>";
+		};
 		BF4366162B4AE80B00009182 /* Source_TestApp */ = {
 			isa = PBXGroup;
 			children = (
+				BFFF91932B545DDE0096803A /* PopJson */,
 				BFFF918E2B52EE7B0096803A /* googletest */,
 				BF4366172B4AE80B00009182 /* TestApp.cpp */,
 			);
@@ -165,6 +181,7 @@
 		BFC7E7B226F0B6500032E0DB /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				BF18BBAC2B55AD1100A0CDDF /* PopJson */,
 				BF4366212B4AEF6C00009182 /* InstanceManager.hpp */,
 				BF43661F2B4AEC6500009182 /* Mp4Decoder.cpp */,
 				BF4366202B4AEC6500009182 /* Mp4Decoder.hpp */,
@@ -182,6 +199,15 @@
 				BFFF918F2B52EE880096803A /* gtest-all.cc */,
 			);
 			name = googletest;
+			sourceTree = "<group>";
+		};
+		BFFF91932B545DDE0096803A /* PopJson */ = {
+			isa = PBXGroup;
+			children = (
+				BFFF91952B545DEC0096803A /* PopJson.cpp */,
+				BFFF91942B545DEC0096803A /* PopJson.hpp */,
+			);
+			name = PopJson;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -312,6 +338,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BF4366302B4AFA4800009182 /* Mp4Parser.cpp in Sources */,
+				BF18BBB02B55AD1E00A0CDDF /* PopJson.cpp in Sources */,
 				BF4366312B4AFA4A00009182 /* PopMp4.cpp in Sources */,
 				BF43662F2B4AFA4500009182 /* Mp4Decoder.cpp in Sources */,
 			);
@@ -321,6 +348,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BFFF91972B545DF10096803A /* PopJson.cpp in Sources */,
 				BF43661E2B4AE82000009182 /* TestApp.cpp in Sources */,
 				BFFF91902B52EE880096803A /* gtest-all.cc in Sources */,
 			);

@@ -4,9 +4,11 @@
 #include <chrono>
 #include <thread>
 #include <functional>
+#include "PopJson/PopJson.hpp"
 
 #include "gtest/gtest.h"
 #define GTEST_TEST_NAME	GetCurrentTestName()
+
 
 std::string GetCurrentTestName()
 {
@@ -18,6 +20,20 @@ std::string GetCurrentTestName()
 	TestName << test_info->test_suite_name() << "." << test_info->name();
 	return TestName.str();
 }
+
+//	fopen_s is a ms specific "safe" func, so provide an alternative
+#if !defined(TARGET_WINDOWS)
+int fopen_s(FILE **f, const char *name, const char *mode)
+{
+	assert(f);
+	*f = fopen(name, mode);
+	//	Can't be sure about 1-to-1 mapping of errno and MS' errno_t
+	if (!*f)
+		return errno;
+	return 0;
+}
+#endif
+
 
 /*
 void InputThread(int Instance,std::istream& Input)
@@ -239,7 +255,50 @@ std::thread RunThreadSafely(std::function<void()> Functor,std::string& Error,std
 	};
 	return std::thread( RunAndCatch );
 }
-	
+
+
+std::thread ReadFileThread(const std::string& Filename,std::function<void(std::span<uint8_t>,bool Eof)> OnReadData,std::string& Error,std::mutex& ErrorLock)
+{
+	auto ReadThread = [=]()
+	{
+		FILE* File = nullptr;
+		auto Error = fopen_s(&File,Filename.c_str(), "rb");
+		if ( !File )
+			throw std::runtime_error( std::string("Failed to open ") + Filename );
+		
+		std::vector<uint8_t> Buffer(1*1024*1024);
+		fseek(File, 0, SEEK_SET);
+		while (!feof(File))
+		{
+			auto BytesRead = fread( Buffer.data(), 1, Buffer.size(), File );
+			auto DataRead = std::span( Buffer.data(), BytesRead );
+			OnReadData( DataRead, false );
+		}
+		fclose(File);
+		OnReadData( {}, true );
+	};
+	return RunThreadSafely( ReadThread, Error, ErrorLock );
+}
+
+std::vector<uint8_t> LoadFile(const std::string& Filename)
+ {
+	 FILE* File = nullptr;
+	 auto Error = fopen_s(&File,Filename.c_str(), "rb");
+	 if ( !File )
+		 throw std::runtime_error( std::string("Failed to open ") + Filename );
+
+	 std::vector<uint8_t> FileContents;
+	 std::vector<uint8_t> Buffer(1*1024*1024);
+	 fseek(File, 0, SEEK_SET);
+	 while (!feof(File))
+	 {
+		 auto BytesRead = fread( Buffer.data(), 1, Buffer.size(), File );
+		 auto DataRead = std::span( Buffer.data(), BytesRead );
+		 std::copy( DataRead.begin(), DataRead.end(), std::back_inserter(FileContents ) );
+	 }
+	 fclose(File);
+	 return FileContents;
+ }
 
 
 TEST_P(Decode_Tests,DecodeAtomTree)
@@ -253,6 +312,7 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 
 	std::mutex OutputLock;
 	std::string Error;
+	PopJson::Json_t FoundRootAtoms;
 	bool FinishedDecode = false;
 	
 	auto ThrowIfTimeout = [&]()
@@ -281,7 +341,7 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 	
 
 	//	monitor state
-	auto ReadStateThread = [&]()
+	auto ReadStateLoop = [&]()
 	{
 		std::vector<char> JsonBuffer( 1024 * 1024 * 1 );
 		while ( IsStillRunning() )
@@ -289,17 +349,45 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 			ThrowIfTimeout();
 			
 			PopMp4_GetDecoderState( Decoder, JsonBuffer.data(), JsonBuffer.size() );
+			
+			std::string MetaJson( JsonBuffer.data() );
+			PopJson::Json_t Meta(MetaJson);
+			
+			if ( Meta.HasKey( "Error" ) )
+			{
+				auto Error = Meta.GetValue("Error").GetString();
+				throw std::runtime_error( std::string(Error) );
+			}
+			
+			{
+				std::scoped_lock Lock(OutputLock);
+				auto Atoms = Meta.GetValue("RootAtoms");
+				FoundRootAtoms = PopJson::Json_t(Atoms);
+			}
+			
+			auto IsFinished = Meta.GetValue("IsFinished").GetBool();
+			if ( IsFinished )
+			{
+				std::scoped_lock Lock(OutputLock);
+				FinishedDecode = true;
+			}
+			
 			//	parse
-			throw std::runtime_error("todo: parse state json");
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 	};
-	auto ReadThread = RunThreadSafely( ReadStateThread, Error, OutputLock );
 	
 	//	stream data into decoder
 	auto OnReadData = [&](std::span<uint8_t> Data,bool Eof)
 	{
+		std::cerr << "Read " << Data.size() << "bytes; eof=" << Eof << std::endl;
 		PopMp4_PushMp4Data( Decoder, Data.data(), Data.size(), Eof );
 	};
+
+
+	auto ReadFileThread = ::ReadFileThread( Params.Filename, OnReadData, Error, OutputLock );
+	auto ReadStateThread = RunThreadSafely( ReadStateLoop, Error, OutputLock );
+
 	
 	while ( IsStillRunning() )
 	{
@@ -307,9 +395,11 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 		std::this_thread::sleep_for( std::chrono::seconds(1) );
 	}
 	
-	if ( ReadThread.joinable() )
-		ReadThread.join();
-	
+	if ( ReadFileThread.joinable() )
+		ReadFileThread.join();
+	if ( ReadStateThread.joinable() )
+		ReadStateThread.join();
+
 	if ( !Error.empty() )
 		FAIL() << Error;
 	//auto Image = DecodeFileFirstFrame( Params.Filename, Params.DecoderName );

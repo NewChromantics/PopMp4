@@ -6,77 +6,9 @@
 #include <thread>
 #include "Mp4Decoder.hpp"
 #include <iostream>
-
+#include "Mp4Parser.hpp" //ExternalReader_t
+#include <sstream>
 /*
-namespace PopMp4
-{
-	class TSample;
-	class TDecoder;
-	class TDecoderParams;
-	
-	std::map<int,std::shared_ptr<TDecoder>>	Decoders;
-	int		LastInstanceIdent = 1000;
-	
-	TDecoder&	GetDecoder(int Instance);
-}
-
-class PopMp4::TSample : public Sample_t
-{
-public:
-	TSample(const Sample_t& Sample) :
-		Sample_t	( Sample )
-	{
-	}
-	TSample(){};
-	uint16_t				mStream = 0;
-	std::vector<uint8_t>	mData;
-};
-
-
-class PopMp4::TDecoderParams
-{
-public:
-	bool	mConvertH264ToAnnexB = true;	//	data in mp4s will be prefixed with length (8,16 or 32bit). Enable this to convert sample data to Nalu-prefixed annexb 0 0 0 1 (no length)
-};
-
-class PopMp4::TDecoder
-{
-public:
-	TDecoder(TDecoderParams Params);
-	~TDecoder();
-
-	void						PushData(const uint8_t* Data,size_t DataSize,bool EndOfFile);	//	std::span would be better, c++20
-	std::shared_ptr<TSample>	PopSample();
-	bool						HasDecoderThreadFinished()	{	return mDecoderThreadFinished;	}
-	
-private:
-	void						DecoderThread();
-	void						WakeDecoderThread();
-
-	//	this function is basically the only mp4-specific interface,
-	//	if we wanted to support more containers, do it here
-	bool						DecodeNext();	//	returns true if we decoded something, false if we need more data
-	
-	void						OnNewSample(const Sample_t& Sample);
-	void						OnNewCodec(Codec_t& Codec);
-	bool						ReadBytes(std::span<uint8_t>& Buffer,size_t FilePosition);
-
-private:
-	std::mutex					mPendingDataLock;
-	std::vector<uint8_t>		mPendingData;
-	size_t						mPendingDataFilePosition = 0;	//	pendingdata[0] is at this position in the file
-	bool						mHadEndOfFile = false;
-	Mp4::Parser_t				mParser;					//	the actual data decoder
-
-	TDecoderParams				mParams;
-
-	std::mutex					mSamplesLock;
-	std::vector<std::shared_ptr<TSample>>	mSamples;
-	
-	bool						mRunThread = true;
-	std::thread					mDecodeThread;
-	bool						mDecoderThreadFinished = false;	//	will parse no more data
-};
 
 
 PopMp4::TDecoder::TDecoder(TDecoderParams Params) :
@@ -344,65 +276,6 @@ PopMp4::TDecoder& PopMp4::GetDecoder(int Instance)
 
 
 
-class PopMp4::TSample : public Sample_t
-{
-public:
-	TSample(const Sample_t& Sample) :
-		Sample_t	( Sample )
-	{
-	}
-	TSample(){};
-	uint16_t				mStream = 0;
-	std::vector<uint8_t>	mData;
-};
-
-
-class PopMp4::TDecoderParams
-{
-public:
-	bool	mConvertH264ToAnnexB = true;	//	data in mp4s will be prefixed with length (8,16 or 32bit). Enable this to convert sample data to Nalu-prefixed annexb 0 0 0 1 (no length)
-};
-
-class PopMp4::TDecoder
-{
-public:
-	TDecoder(TDecoderParams Params);
-	~TDecoder();
-
-	void						PushData(const uint8_t* Data,size_t DataSize,bool EndOfFile);	//	std::span would be better, c++20
-	std::shared_ptr<TSample>	PopSample();
-	bool						HasDecoderThreadFinished()	{	return mDecoderThreadFinished;	}
-	
-private:
-	void						DecoderThread();
-	void						WakeDecoderThread();
-
-	//	this function is basically the only mp4-specific interface,
-	//	if we wanted to support more containers, do it here
-	bool						DecodeNext();	//	returns true if we decoded something, false if we need more data
-	
-	void						OnNewSample(const Sample_t& Sample);
-	void						OnNewCodec(Codec_t& Codec);
-	bool						ReadBytes(std::span<uint8_t>& Buffer,size_t FilePosition);
-
-private:
-	std::mutex					mPendingDataLock;
-	std::vector<uint8_t>		mPendingData;
-	size_t						mPendingDataFilePosition = 0;	//	pendingdata[0] is at this position in the file
-	bool						mHadEndOfFile = false;
-	Mp4::Parser_t				mParser;					//	the actual data decoder
-
-	TDecoderParams				mParams;
-
-	std::mutex					mSamplesLock;
-	std::vector<std::shared_ptr<TSample>>	mSamples;
-	
-	bool						mRunThread = true;
-	std::thread					mDecodeThread;
-	bool						mDecoderThreadFinished = false;	//	will parse no more data
-};
-
-
 PopMp4::TDecoder::TDecoder(TDecoderParams Params) :
 	mParams	(Params)
 {
@@ -662,8 +535,242 @@ bool PopMp4::TDecoder::ReadBytes(DataSpan_t& Buffer,size_t FilePosition)
 	
 */
 
+void DataSourceBuffer_t::PushData(std::span<uint8_t> Data)
+{
+	std::scoped_lock Lock( mDataLock );
+	std::copy( Data.begin(), Data.end(), std::back_inserter(mData) );
+}
+	
+void DataSourceBuffer_t::PushEndOfFile()
+{
+	std::scoped_lock Lock( mDataLock );
+	mHadEof = true;
+}
+
+void DataSourceBuffer_t::LockData(size_t FilePosition,size_t Size,std::function<void(std::span<uint8_t>)> OnPeekData)
+{
+	std::scoped_lock Lock( mDataLock );
+	
+	//	if out of bounds and may still have data, throw "not enough data yet" exception
+	//	if we've had EOF (and all the data we'll ever get), this is an out of bounds read
+	if ( FilePosition + Size > mData.size() )
+	{
+		if ( mHadEof )
+			throw TNeedMoreDataException();
+		else
+			throw std::runtime_error("MP4 read out of bounds");
+	}
+	
+	auto TheData = std::span(mData);
+	TheData = TheData.subspan( FilePosition, Size );
+	OnPeekData( TheData );
+}
+
+bool DataSourceBuffer_t::HadEof()
+{
+	std::scoped_lock Lock(mDataLock);	
+	return mHadEof;
+}
+
+
+
+PopMp4::Decoder_t::Decoder_t()
+{
+	mExtractedMp4RootAtoms.push_back('Test');
+	
+	mInputSource.reset( new DataSourceBuffer_t );
+	
+	auto Thread = [this](void*)
+	{
+		try
+		{
+			this->DecoderThread();
+		}
+		catch(std::exception& e)
+		{
+			OnError(e);
+		}
+		mDecoderThreadFinished = true;
+	};
+	mDecodeThread = std::thread( Thread, this );
+}
+
+
+PopMp4::Decoder_t::~Decoder_t()
+{
+	//	wait for thread to finish
+	mRunThread = false;
+	WakeDecoderThread();
+	if (mDecodeThread.joinable())
+		mDecodeThread.join();
+}
+
+
+void PopMp4::Decoder_t::WakeDecoderThread()
+{
+	//	notify conditional
+}
+
+
+void PopMp4::Decoder_t::DecoderThread()
+{
+	while ( mRunThread )
+	{
+		try
+		{
+			if ( !DecodeIteration() )
+				return;
+		}
+		catch(TNeedMoreDataException& NeedMoreData)
+		{
+			//	replace this with wait conditional
+			std::this_thread::sleep_for( std::chrono::milliseconds(100) );
+		}
+	}
+}
+
+
+void PopMp4::Decoder_t::ValidateAtom(Atom_t& Atom)
+{
+	//	throw if non ascii fourcc
+	auto IsAscii = [](uint8_t v)
+	{
+		return isprint(v);
+		//if ( v >= 'a' && v <= 'z' )	return true;
+		//if ( v >= 'A' && v <= 'Z' )	return true;
+		//if ( v >= 'a' && v <= 'z' )	return true;
+	};
+	
+	//	gr: find some cases where this is wrong!
+	auto Fourcc = Atom.Fourcc;
+	uint8_t a = (Fourcc>>0) & 0xff;
+	uint8_t b = (Fourcc>>8) & 0xff;
+	uint8_t c = (Fourcc>>16) & 0xff;
+	uint8_t d = (Fourcc>>24) & 0xff;
+	std::array<uint8_t,4> abcd = { a,b,c,d };
+	bool Valid = true;
+	for ( auto x : abcd )
+		Valid = Valid && IsAscii(x);
+	if ( !Valid )
+	{
+		std::stringstream Error;
+		Error << "Detected invalid fourcc in mp4 atom; " << Atom.GetFourccString() << std::endl;
+		throw std::runtime_error(Error.str());
+	}
+	
+	//	throw if size is greater than the file size
+	auto AtomDataEnd = Atom.ContentsFilePosition() + Atom.ContentSize();
+	if ( this->mInputSource->HadEof() )
+	{
+		//	todo: probe this with input source
+		/*
+		//	gr: maybe have a tolerance here for general file or programmer mistakes?
+		//		we'r just trying to trap non-mp4 files
+		auto Tolerance = 1024;
+		if ( AtomDataEnd > mMp4Data.size()+Tolerance )
+		{
+			std::stringstream Error;
+			Error << "Detected mp4 atom (" << Atom.GetFourccString() << ") content size too big for file " << Atom.ContentSize() << "/" << mMp4Data.size();
+			throw std::runtime_error(Error.str());
+		}
+		 */
+	}
+	
+	//	throw if size is massive (just an arbritry limit)
+	auto Limit = 1024 * 1024 * 1024 * 1;	//	1gb
+	if ( Atom.ContentSize() > Limit )
+	{
+		std::stringstream Error;
+		Error << "Detected mp4 atom (" << Atom.GetFourccString() << ") content size too big (arbritry size limit) " << Atom.ContentSize() << "/" << Limit;
+		throw std::runtime_error(Error.str());
+	}
+}
+
+bool PopMp4::Decoder_t::DecodeIteration()
+{
+	//	would be good to have a functor for ExternalReader which locks the data rather than needing to copy
+	auto ReadFileBytes = [this](std::span<uint8_t> FillBuffer,size_t FilePosition)
+	{
+		auto OnLock = [&](std::span<uint8_t> FileData)
+		{
+			std::copy( FileData.begin(), FileData.end(), FillBuffer.begin() );
+		};
+		mInputSource->LockData( FilePosition, FillBuffer.size(), OnLock );
+		return true;
+	};
+	
+	//	if we've had EOF and read all the bytes, we can finish
+	if ( mInputSource->HadEof() )
+	{
+		std::cerr << "todo: check if we've finished file" << std::endl;
+	}
+	
+	ExternalReader_t Reader(mMp4BytesRead,ReadFileBytes);
+
+	//	gr: due to race conditions, it's possible that we've reached EOF after the check above
+	//		but inside ReadNextAtom, so catch a bad read here and if it turns out we're "now" at
+	//		the end of the file, dont report an error
+	Atom_t Atom;
+	try
+	{
+		Atom = Reader.ReadNextAtom();
+		ValidateAtom(Atom);
+		
+		//	this will read the contents, if it fails because we need more data, we won't move along the bytes read yet
+		//ProcessAtom( Atom, ReadFileBytes );
+		std::scoped_lock Lock(mDataLock);
+		mExtractedMp4RootAtoms.push_back(Atom.Fourcc);
+	}
+	catch(TNeedMoreDataException& e)
+	{
+		return true;
+	}
+	catch(std::exception& e)
+	{
+		/*
+		 //	we've had our end of file...
+		 if ( mHadEndOfFile )
+		 {
+		 //	and the parser has read all our data, so no more to decode
+		 auto PendingDataEnd = mPendingDataFilePosition + mPendingData.size();
+		 if ( mParser.mFilePosition >= PendingDataEnd )
+		 return false;
+		 }
+		 */
+	}
+	
+	//	move onto next atom (this skips data, even if we've not downloaded it yet)
+	mMp4BytesRead += Atom.AtomSize();
+		
+	return true;
+}
+
+void PopMp4::Decoder_t::OnError(std::string_view Error)
+{
+	std::scoped_lock Lock(mDataLock);
+	mError = Error;
+}
+
 
 void PopMp4::Decoder_t::PushData(std::span<uint8_t> Data)
 {
-	throw std::runtime_error("Todo");
+	auto InputSource = mInputSource;
+	InputSource->PushData(Data);
+	WakeDecoderThread();
+}
+
+PopJson::Json_t PopMp4::Decoder_t::GetState()
+{
+	PopJson::Json_t Meta;
+	
+	std::scoped_lock Lock(mDataLock);
+	if ( !mError.empty() )
+	{
+		Meta["Error"] = mError;
+	}
+	
+	Meta["IsFinished"] = !mRunThread;
+	Meta["RootAtoms"].PushBack( mExtractedMp4RootAtoms, [&](const uint32_t& Fourcc){	return GetFourccString(Fourcc,true);	} );
+
+	return Meta;
 }

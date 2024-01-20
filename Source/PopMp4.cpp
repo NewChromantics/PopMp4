@@ -85,21 +85,13 @@ DLL_EXPORT bool PopMp4_PushMp4Data(int Instance,const uint8_t* Data,uint32_t Dat
 }
 
 
-std::string GetMetaJson()
-{
-	std::stringstream Json;
-	Json << "{\"Error\":\"todo: get meta\"}";
-	return Json.str();
-}
-
 DLL_EXPORT void PopMp4_GetDecoderState(int Instance,char* JsonBuffer,int JsonBufferSize)
 {
 	try
 	{
-		auto pInstance = PopMp4::DecoderInstances.Alloc();
-		//auto Meta = Instance->GetState();
-		
-		auto Json = GetMetaJson();
+		auto pInstance = PopMp4::DecoderInstances.GetInstance(Instance);
+		auto Meta = pInstance->GetState();
+		auto Json = Meta.GetJsonString();
 		StringCopyToBuffer( Json, JsonBuffer, JsonBufferSize );
 	}
 	catch(std::exception& e)
