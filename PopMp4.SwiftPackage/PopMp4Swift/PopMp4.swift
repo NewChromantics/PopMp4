@@ -30,8 +30,8 @@ struct PopMp4Error : LocalizedError
 public struct Mp4Meta: Decodable
 {
 	let Error: String?
-	let AtomTree : [String]?
-	let EndOfFile: Bool
+	let RootAtoms : [String]?	//	will be a tree
+	let IsFinished: Bool?		//	decoder has finished - will be missing if just an error
 }
 
 //	based on public class CondenseStream
@@ -39,10 +39,7 @@ class PopMp4Instance
 {
 	var instance : CInt = 0
 	
-	//	these will come out of CAPI calls
-	var atomTree : [String] = ["Hello"]
-	var atomTreeCounter = 0
-	
+
 	init(Filename:String) throws
 	{
 		self.instance = PopMp4_AllocDecoder(Filename)
@@ -59,31 +56,25 @@ class PopMp4Instance
 	//	returns null when finished/eof
 	func WaitForMetaChange() async -> Mp4Meta
 	{
-		//	gr: replace this will call to CAPI to get new meta
-		var SleepMs = 10
-		var SleepNano = (SleepMs * 1_000_000)
+		if ( self.instance == 0 )
+		{
+			return Mp4Meta( Error:"Failed to allocate MP4 decoder", RootAtoms:nil, IsFinished:true )
+		}
+		
 		do
 		{
-			try await Task.sleep(nanoseconds: UInt64(SleepNano) )
+			var StateJson = PopMp4_GetDecodeStateJson(self.instance);
+			let StateJsonData = StateJson.data(using: .utf8)!
+			let Meta: Mp4Meta = try! JSONDecoder().decode(Mp4Meta.self, from: StateJsonData)
+			return Meta
 		}
 		catch let error as Error
 		{
-			return Mp4Meta( Error:error.localizedDescription, AtomTree:nil, EndOfFile:true )
+			let OutputError = "Error getting decoder state; \(error.localizedDescription)"
+			return Mp4Meta( Error:OutputError, RootAtoms:nil, IsFinished:true )
 		}
-		atomTreeCounter += 1
-		
-		//	send eof
-		if ( atomTreeCounter >= 1000 )
-		{
-			return Mp4Meta( Error:nil, AtomTree:nil, EndOfFile:true )
-		}
-		
-		var NewAtom = "Atom #\(atomTreeCounter)"
-		atomTree.append(NewAtom)
-			
-		return Mp4Meta( Error:nil, AtomTree:atomTree, EndOfFile:false )
 	}
-			
+
 }
 
 
@@ -108,13 +99,14 @@ public class Mp4ViewModel : ObservableObject
 
 	@Published public var atomTree : [String]
 	@Published public var loadingStatus = LoadingStatus.Init
+	@Published public var error : String?
 	var mp4Decoder : PopMp4Instance?
 	
 	
 	public init()
 	{
 		self.mp4Decoder = nil
-		self.atomTree = ["Model's initial Tree"]
+		self.atomTree = []
 	}
 	
 	@MainActor // as we change published variables, we need to run on the main thread
@@ -128,22 +120,21 @@ public class Mp4ViewModel : ObservableObject
 			//	todo: return struct with error, tree, other meta
 			var NewMeta = try await self.mp4Decoder!.WaitForMetaChange()
 			
-			//	todo: do something with error
+			//	update data
+			if ( NewMeta.RootAtoms != nil )
+			{
+				self.atomTree = NewMeta.RootAtoms!
+			}
+			
 			if ( NewMeta.Error != nil )
 			{
-				self.atomTree = [NewMeta.Error!]
+				self.error = NewMeta.Error
 				self.loadingStatus = LoadingStatus.Error
 				return
 			}
 			
-			//	update data
-			if ( NewMeta.AtomTree != nil )
-			{
-				self.atomTree = NewMeta.AtomTree!
-			}
-			
-			//	eof
-			if ( NewMeta.EndOfFile )
+			//	eof - if it's missing, we'll have to assume processing has failed (eg. just an error present)
+			if ( NewMeta.IsFinished ?? true )
 			{
 				break
 			}
