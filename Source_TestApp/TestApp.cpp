@@ -200,12 +200,12 @@ TEST(General_Tests, PopMp4UnitTest )
 class DecodeResults_t
 {
 public:
-	int					RootAtomCount = 0;
+	std::vector<std::string>	RootAtoms;
 	
 	friend std::ostream& operator<<(std::ostream& os, const DecodeResults_t& Params)
 	{
 		os << "DecodeResults_t-->";
-		os << " RootAtomCount=" << Params.RootAtomCount;
+		os << " RootAtoms=" << Params.RootAtoms.size();
 		return os;
 	}
 };
@@ -232,7 +232,7 @@ class Decode_Tests : public testing::TestWithParam<DecodeTestParams_t>
 
 auto DecodeTestValues = ::testing::Values
 (
-	DecodeTestParams_t{.Filename="TestData/Test.mp4", .ExpectedResults{.RootAtomCount=1} }
+ DecodeTestParams_t{.Filename="TestData/Test.mp4", .ExpectedResults{.RootAtoms={"a","b","c"}} }
 );
 	
 INSTANTIATE_TEST_SUITE_P( Decode_Tests, Decode_Tests, DecodeTestValues );
@@ -363,6 +363,7 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 				std::scoped_lock Lock(OutputLock);
 				auto Atoms = Meta.GetValue("RootAtoms");
 				FoundRootAtoms = PopJson::Json_t(Atoms);
+				std::cerr << "FoundRootAtoms; x" << FoundRootAtoms.GetChildCount() << std::endl;
 			}
 			
 			auto IsFinished = Meta.GetValue("IsFinished").GetBool();
@@ -402,5 +403,7 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 
 	if ( !Error.empty() )
 		FAIL() << Error;
-	//auto Image = DecodeFileFirstFrame( Params.Filename, Params.DecoderName );
+	
+	//	todo: compare contents
+	EXPECT_EQ( FoundRootAtoms.GetChildCount(), Params.ExpectedResults.RootAtoms.size() );
 }

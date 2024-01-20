@@ -556,9 +556,9 @@ void DataSourceBuffer_t::LockData(size_t FilePosition,size_t Size,std::function<
 	if ( FilePosition + Size > mData.size() )
 	{
 		if ( mHadEof )
-			throw TNeedMoreDataException();
-		else
 			throw std::runtime_error("MP4 read out of bounds");
+
+		throw TNeedMoreDataException();
 	}
 	
 	auto TheData = std::span(mData);
@@ -576,7 +576,7 @@ bool DataSourceBuffer_t::HadEof()
 
 PopMp4::Decoder_t::Decoder_t()
 {
-	mExtractedMp4RootAtoms.push_back('Test');
+	//mExtractedMp4RootAtoms.push_back('Test');
 	
 	mInputSource.reset( new DataSourceBuffer_t );
 	
@@ -727,6 +727,7 @@ bool PopMp4::Decoder_t::DecodeIteration()
 	}
 	catch(std::exception& e)
 	{
+		throw;
 		/*
 		 //	we've had our end of file...
 		 if ( mHadEndOfFile )
@@ -769,7 +770,7 @@ PopJson::Json_t PopMp4::Decoder_t::GetState()
 		Meta["Error"] = mError;
 	}
 	
-	Meta["IsFinished"] = !mRunThread;
+	Meta["IsFinished"] = mDecoderThreadFinished;
 	Meta["RootAtoms"].PushBack( mExtractedMp4RootAtoms, [&](const uint32_t& Fourcc){	return GetFourccString(Fourcc,true);	} );
 
 	return Meta;
