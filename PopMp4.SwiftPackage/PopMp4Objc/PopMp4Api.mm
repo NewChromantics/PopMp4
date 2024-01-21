@@ -8,9 +8,83 @@
 #include <array>
 
 
-@implementation FrameResource
+//	https://stackoverflow.com/questions/43561531/how-to-convert-an-exception-into-an-nserror-object
+NSError* GetError(NSException* exception)
+{
+	NSMutableDictionary *info = [exception.userInfo mutableCopy]?:[[NSMutableDictionary alloc] init];
+	[info addEntriesFromDictionary: [exception dictionaryWithValuesForKeys:@[@"ExceptionName", @"ExceptionReason", @"ExceptionCallStackReturnAddresses", @"ExceptionCallStackSymbols"] ] ];
+	[info addEntriesFromDictionary:@{NSLocalizedDescriptionKey: exception.name, NSLocalizedFailureReasonErrorKey:exception.reason }];
+	auto* error = [NSError errorWithDomain:@"myErrorDomain" code:-10 userInfo:info];
+	return error;
+}
+
+@implementation Mp4DecoderWrapper
+
+int mInstance = PopMp4Decoder_NullInstance;
+
+/*	doesnt seem to need to be implemented
+- (id)init
+{
+	self = [super init];
+	mInstance = PopMp4Decoder_NullInstance;
+	return self;
+}*/
+
+- (void)allocateWithFilename:(NSString*)Filename error:(NSError**)throwError __attribute__((swift_error(nonnull_error)))
+{
+	*throwError = nil;
+	try
+	{
+		@try
+		{
+			mInstance = PopMp4_AllocDecoder(Filename);
+		}
+		@catch (NSException* exception)
+		{
+			//*throwError = [NSError errorWithDomain:exception.reason code:0 userInfo:nil];
+			throw std::runtime_error(exception.reason.UTF8String);
+		}
+	}
+	catch (std::exception& e)
+	{
+		//*throwError = [NSError errorWithDomain:@"PopMp4 allocate" code:0 userInfo:nil];
+		NSString* error = [NSString stringWithUTF8String:e.what()];
+		*throwError = [NSError errorWithDomain:error code:0 userInfo:nil];
+		//*throwError = GetError(exception);
+	}
+}
+
+- (void)free
+{
+	PopMp4_FreeDecoder(mInstance);
+	//mInstance = PopMp4Decoder_NullInstance;
+}
+
+- (NSString*__nonnull)getDecoderStateJson:(NSError**)throwError __attribute__((swift_error(nonnull_error)))
+{
+	*throwError = nil;
+	try
+	{
+		@try
+		{
+			return PopMp4_GetDecodeStateJson(mInstance);
+		}
+		@catch (NSException* exception)
+		{
+			//*throwError = [NSError errorWithDomain:exception.reason code:0 userInfo:nil];
+			throw std::runtime_error(exception.reason.UTF8String);
+		}
+	}
+	catch (std::exception& e)
+	{
+		NSString* error = [NSString stringWithUTF8String:e.what()];
+		*throwError = [NSError errorWithDomain:error code:0 userInfo:nil];
+	}
+}
 
 @end
+
+
 
 //	to be visible in swift, the declaration is in header.
 //	but all headers for swift are in C (despite objc types??) and are not mangled
@@ -76,7 +150,31 @@ DLL_EXPORT FrameResource* __nonnull SegmentManager_WaitForResourceDownload_Objc(
 
 DLL_EXPORT int PopMp4_AllocDecoder(NSString* Filename)
 {
-	return ::PopMp4_CreateDecoder();
+	std::vector<char> ErrorBuffer(100*1024);
+
+	NSDictionary* Options =
+	@{
+		@"Filename" : Filename,
+	};
+	NSData* OptionsJsonData = [NSJSONSerialization dataWithJSONObject:Options options:NSJSONWritingPrettyPrinted error:nil];
+	NSString* OptionsJsonString = [[NSString alloc] initWithData:OptionsJsonData encoding:NSUTF8StringEncoding];
+	const char* OptionsJsonStringC = [OptionsJsonString UTF8String];
+
+	auto Instance = ::PopMp4_CreateDecoderWithOptions( OptionsJsonStringC, ErrorBuffer.data(), ErrorBuffer.size() );
+
+	//auto Error = [NSString stringWithUTF8String: ErrorBuffer.data()];
+	auto Error = std::string( ErrorBuffer.data() );
+
+	if ( !Error.empty() )
+	//if ( Error.length > 0 )
+		//@throw([NSException exceptionWithName:@"Error allocating MP4 decoder" reason:Error userInfo:nil]);
+		throw std::runtime_error(Error);
+	
+	if ( Instance == PopMp4Decoder_NullInstance )
+		//@throw([NSException exceptionWithName:@"Error allocating MP4 decoder" reason:@"null returned" userInfo:nil]);
+		throw std::runtime_error("Failed to allocate PopMp4 instance");
+	
+	return Instance;
 }
 
 DLL_EXPORT void PopMp4_FreeDecoder(int Instance)
@@ -84,7 +182,7 @@ DLL_EXPORT void PopMp4_FreeDecoder(int Instance)
 	::PopMp4_FreeDecoder(Instance);
 }
 
-//	todo: return a proper struct for swift to use directly
+//	todo: can return a obj-c struct for swift to use directly instead of re-parsing in swift
 DLL_EXPORT NSString*__nonnull PopMp4_GetDecodeStateJson(int Instance)
 {
 	std::vector<char> JsonBuffer(100*1024);

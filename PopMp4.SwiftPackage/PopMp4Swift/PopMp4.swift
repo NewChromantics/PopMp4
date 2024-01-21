@@ -37,33 +37,39 @@ public struct Mp4Meta: Decodable
 //	based on public class CondenseStream
 class PopMp4Instance
 {
-	var instance : CInt = 0
-	
+	var instanceWrapper : Mp4DecoderWrapper
+	//var instance : CInt = 0
+	var allocationError : String?
 
-	init(Filename:String) throws
+	init(Filename:String)
 	{
-		self.instance = PopMp4_AllocDecoder(Filename)
-
-		if ( self.instance == 0 )
+		do
 		{
-			//throw PopMp4Error("Failed to allocate MP4 decoder for \(Filename)")
+			self.instanceWrapper = Mp4DecoderWrapper()
+			try self.instanceWrapper.allocate(withFilename: Filename)
+			//self.instance = PopMp4_AllocDecoder(Filename)
+			var Version = PopMp4_GetVersion()
+			//print("Allocated instance \(self.instance); PopMp4 version \(Version)")
+			print("Allocated instance \(self.instanceWrapper); PopMp4 version \(Version)")
 		}
-		
-		var Version = PopMp4_GetVersion()
-		print("Allocated instance \(self.instance); PopMp4 version \(Version))")
+		catch
+		{
+			allocationError = error.localizedDescription
+		}
 	}
 	
 	//	returns null when finished/eof
 	func WaitForMetaChange() async -> Mp4Meta
 	{
-		if ( self.instance == 0 )
+		if ( allocationError != nil )
 		{
-			return Mp4Meta( Error:"Failed to allocate MP4 decoder", RootAtoms:nil, IsFinished:true )
+			return Mp4Meta( Error:allocationError, RootAtoms:nil, IsFinished:true )
 		}
 		
 		do
 		{
-			var StateJson = PopMp4_GetDecodeStateJson(self.instance);
+			//var StateJson = PopMp4_GetDecodeStateJson(self.instance);
+			var StateJson = try self.instanceWrapper.getDecoderStateJson()
 			let StateJsonData = StateJson.data(using: .utf8)!
 			let Meta: Mp4Meta = try! JSONDecoder().decode(Mp4Meta.self, from: StateJsonData)
 			return Meta
@@ -113,10 +119,12 @@ public class Mp4ViewModel : ObservableObject
 	public func Load(filename: String) async throws
 	{
 		self.loadingStatus = LoadingStatus.Loading
-		try self.mp4Decoder = PopMp4Instance(Filename: filename)
+		self.mp4Decoder = PopMp4Instance(Filename: filename)
 		
 		while ( true )
 		{
+			try await Task.sleep(nanoseconds: 10_000_000)
+
 			//	todo: return struct with error, tree, other meta
 			var NewMeta = try await self.mp4Decoder!.WaitForMetaChange()
 			

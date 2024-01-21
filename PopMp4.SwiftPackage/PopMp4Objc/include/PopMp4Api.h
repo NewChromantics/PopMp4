@@ -6,13 +6,26 @@
 */
 #import <Foundation/Foundation.h>
 #import <Accelerate/Accelerate.h>
-#import <simd/simd.h>
 
 //	linkage from swift needs to not have extern"C" and does no mangling.
 //	objective-c mangles the name so this needs to be extern"C"
 #if !defined(DLL_EXPORT)
 #define DLL_EXPORT
 #endif
+
+
+//	gr: switched to an objective c class so we can use attributes which allow swift to auto-throw
+//		swift exceptions which can be easily caught
+//	gr: to allocate in swift, this needs to inherit from NSObject, otherwise we get an exception with no information
+@interface Mp4DecoderWrapper : NSObject
+
+//- (id)init;	//	doesnt seem to need to be declared
+
+- (void)allocateWithFilename:(NSString*)Filename error:(NSError**)throwError __attribute__((swift_error(nonnull_error)));
+- (void)free;
+- (NSString*__nonnull)getDecoderStateJson:(NSError**)throwError __attribute__((swift_error(nonnull_error)));
+
+@end
 
 DLL_EXPORT NSString*__nonnull PopMp4_GetVersion();
 DLL_EXPORT int PopMp4_AllocDecoder(NSString* Filename);
