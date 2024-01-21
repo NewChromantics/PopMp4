@@ -672,17 +672,20 @@ void DataSourceFile_t::PushEndOfFile()
 
 void DataSourceFile_t::LockData(size_t FilePosition,size_t Size,std::function<void(std::span<uint8_t>)> OnPeekData)
 {
+	ThrowIfError();
 	return mFileReadBufferSource.LockData( FilePosition, Size, OnPeekData );
 }
 
 
 void DataSourceFile_t::LockData(std::function<void(std::span<uint8_t>,bool HadEof)> OnPeekData)
 {
+	ThrowIfError();
 	return mFileReadBufferSource.LockData( OnPeekData );
 }
 
 bool DataSourceFile_t::HadEof()
 {
+	ThrowIfError();
 	return mFileReadBufferSource.HadEof();
 }
 
