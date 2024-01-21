@@ -499,6 +499,8 @@ TEST_P(Decode_Tests,DecodeAtomTree_WithFilename)
 				std::scoped_lock Lock(OutputLock);
 				auto Atoms = Meta.GetValue("RootAtoms");
 				FoundRootAtoms = PopJson::Json_t(Atoms);
+				std::cerr << MetaJson << std::endl;
+				/*
 				std::cerr << "FoundRootAtoms; x" << FoundRootAtoms.GetChildCount() << "... ";
 				auto FoundRootAtomNames = FoundRootAtoms.GetStringArray();
 				for ( auto Child : FoundRootAtomNames )

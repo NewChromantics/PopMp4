@@ -872,6 +872,15 @@ bool PopMp4::Decoder_t::DecodeIteration()
 		 */
 	}
 	
+	
+	PopJson::Json_t AtomJson;
+	AtomJson["Fourcc"] = Atom.GetFourccString();
+	AtomJson["HeaderSizeBytes"] = Atom.HeaderSize();
+	AtomJson["ContentSizeBytes"] = Atom.ContentSize();
+	//	todo: enumerate children
+	mAtomTree.PushBack(AtomJson);
+
+	
 	//	move onto next atom (this skips data, even if we've not downloaded it yet)
 	mMp4BytesParsed += Atom.AtomSize();
 		
@@ -911,8 +920,8 @@ PopJson::Json_t PopMp4::Decoder_t::GetState()
 	
 	Meta["IsFinished"] = mDecoderThreadFinished;
 	Meta["RootAtoms"].PushBack( mExtractedMp4RootAtoms, [&](const uint32_t& Fourcc){	return GetFourccString(Fourcc,true);	} );
-	//Meta["AtomTree"] = mAtomTree;
 	Meta["Mp4BytesParsed"] = mMp4BytesParsed;
+	Meta["AtomTree"] = mAtomTree;
 
 	return Meta;
 }

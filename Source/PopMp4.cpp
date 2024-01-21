@@ -28,8 +28,12 @@ static void StringCopyToBuffer(std::string_view Input,char* OutputBuffer,size_t 
 		return;
 	
 	auto CopyLength = std::min( OutputBufferSize, Input.length()+1 );	//	+1 as length doesnt include terminator on string_view
-	for ( auto i=0;	i<CopyLength;	i++ )
+	for ( auto i=0;	i<Input.length();	i++ )
+	{
+		if ( i > Input.length() )
+			std::cerr << "oob" << std::endl;
 		OutputBuffer[i] = Input[i];
+	}
 	
 	OutputBuffer[CopyLength-1] = '\0';
 }
@@ -97,7 +101,10 @@ DLL_EXPORT void PopMp4_GetDecoderState(int Instance,char* JsonBuffer,int JsonBuf
 		auto pInstance = PopMp4::DecoderInstances.GetInstance(Instance);
 		auto Meta = pInstance->GetState();
 		auto Json = Meta.GetJsonString();
+		
+		std::cerr << "copying json x" << Json.length() << " into " << JsonBufferSize << "...";
 		StringCopyToBuffer( Json, JsonBuffer, JsonBufferSize );
+		std::cerr << ".. done";
 	}
 	catch(std::exception& e)
 	{
