@@ -25,6 +25,7 @@ public:
 	virtual void		PushData(std::span<uint8_t> Data)=0;
 	virtual void		PushEndOfFile()=0;
 	virtual void		LockData(size_t FilePosition,size_t Size,std::function<void(std::span<uint8_t>)> OnPeekData)=0;
+	virtual void		LockData(std::function<void(std::span<uint8_t>,bool HadEof)> OnPeekData)=0;
 	virtual bool		HadEof()=0;
 };
 
@@ -35,6 +36,7 @@ public:
 	virtual void		PushData(std::span<uint8_t> Data) override;
 	virtual void		PushEndOfFile() override;
 	virtual void		LockData(size_t FilePosition,size_t Size,std::function<void(std::span<uint8_t>)> OnPeekData) override;
+	virtual void		LockData(std::function<void(std::span<uint8_t>,bool HadEof)> OnPeekData) override;
 	virtual bool		HadEof() override;
 
 public:
@@ -124,6 +126,7 @@ public:
 	~Decoder_t();
 	
 	void			PushData(std::span<uint8_t> Data);
+	void			PushEndOfFile();
 	PopJson::Json_t	GetState();
 	
 protected:

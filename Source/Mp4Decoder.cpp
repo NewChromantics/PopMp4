@@ -566,6 +566,13 @@ void DataSourceBuffer_t::LockData(size_t FilePosition,size_t Size,std::function<
 	OnPeekData( TheData );
 }
 
+
+void DataSourceBuffer_t::LockData(std::function<void(std::span<uint8_t>,bool HadEof)> OnPeekData)
+{
+	std::scoped_lock Lock( mDataLock );
+	OnPeekData( mData, mHadEof );
+}
+
 bool DataSourceBuffer_t::HadEof()
 {
 	std::scoped_lock Lock(mDataLock);	
@@ -699,11 +706,16 @@ bool PopMp4::Decoder_t::DecodeIteration()
 		return true;
 	};
 	
+	
 	//	if we've had EOF and read all the bytes, we can finish
-	if ( mInputSource->HadEof() )
+	bool IsFinished = false;
+	auto OnLockedAllData = [&](std::span<uint8_t> AllData,bool HadEof)
 	{
-		std::cerr << "todo: check if we've finished file" << std::endl;
-	}
+		IsFinished = mMp4BytesRead == AllData.size_bytes() && HadEof;
+	};
+	mInputSource->LockData(OnLockedAllData);
+	if ( IsFinished )
+		return false;
 	
 	ExternalReader_t Reader(mMp4BytesRead,ReadFileBytes);
 
@@ -757,6 +769,13 @@ void PopMp4::Decoder_t::PushData(std::span<uint8_t> Data)
 {
 	auto InputSource = mInputSource;
 	InputSource->PushData(Data);
+	WakeDecoderThread();
+}
+
+void PopMp4::Decoder_t::PushEndOfFile()
+{
+	auto InputSource = mInputSource;
+	InputSource->PushEndOfFile();
 	WakeDecoderThread();
 }
 

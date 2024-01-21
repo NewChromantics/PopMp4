@@ -75,6 +75,8 @@ DLL_EXPORT bool PopMp4_PushMp4Data(int Instance,const uint8_t* Data,uint32_t Dat
 		auto Decoder = PopMp4::DecoderInstances.GetInstance(Instance);
 		std::span DataSpan( const_cast<uint8_t*>(Data), DataSize );
 		Decoder->PushData( DataSpan );
+		if ( EndOfFile )
+			Decoder->PushEndOfFile();
 		return true;
 	}
 	catch(std::exception& e)
