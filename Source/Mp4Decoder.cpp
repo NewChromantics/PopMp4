@@ -600,6 +600,10 @@ bool DataSourceBuffer_t::HadEof()
 DataSourceFile_t::DataSourceFile_t(std::string_view Filename) :
 	mFilename	( Filename )
 {
+	//	gr: hack for now
+	if ( mFilename.starts_with("file://") )
+		mFilename = mFilename.substr( std::strlen("file://") );
+	
 	auto ReadThread = [this]()
 	{
 		try
