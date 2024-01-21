@@ -45,11 +45,34 @@ public:
 	std::vector<uint8_t>	mData;
 };
 
-/*	todo: mmap file reader
+
 class DataSourceFile_t : public DataSource_t
 {
+public:
+	DataSourceFile_t(std::string_view Filename);
+	~DataSourceFile_t();
+
+	virtual void		PushData(std::span<uint8_t> Data) override;
+	virtual void		PushEndOfFile() override;
+	virtual void		LockData(size_t FilePosition,size_t Size,std::function<void(std::span<uint8_t>)> OnPeekData) override;
+	virtual void		LockData(std::function<void(std::span<uint8_t>,bool HadEof)> OnPeekData) override;
+	virtual bool		HadEof() override;
+	void				OnError(std::string_view Error);
+	
+protected:
+	void				ReadFileThread();
+	void				ThrowIfError();
+	
+	//	todo: mmap file reader
+	//		but for now, stream file into a buffer
+	DataSourceBuffer_t	mFileReadBufferSource;
+	std::string			mFilename;
+	std::thread			mReadFileThread;
+	
+	std::mutex			mDataLock;
+	std::string			mError;
 };
-*/
+
 
 class PopMp4::DecoderParams_t
 {
@@ -122,7 +145,7 @@ private:
 class PopMp4::Decoder_t
 {
 public:
-	Decoder_t();
+	Decoder_t(PopJson::ViewBase_t& Options);
 	~Decoder_t();
 	
 	void			PushData(std::span<uint8_t> Data);

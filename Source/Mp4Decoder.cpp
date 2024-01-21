@@ -8,6 +8,21 @@
 #include <iostream>
 #include "Mp4Parser.hpp" //ExternalReader_t
 #include <sstream>
+
+
+//	fopen_s is a ms specific "safe" func, so provide an alternative
+#if !defined(TARGET_WINDOWS)
+int fopen_s(FILE **f, const char *name, const char *mode)
+{
+	//assert(f);
+	*f = fopen(name, mode);
+	//	Can't be sure about 1-to-1 mapping of errno and MS' errno_t
+	if (!*f)
+		return errno;
+	return 0;
+}
+#endif
+
 /*
 
 
@@ -581,11 +596,109 @@ bool DataSourceBuffer_t::HadEof()
 
 
 
-PopMp4::Decoder_t::Decoder_t()
+
+DataSourceFile_t::DataSourceFile_t(std::string_view Filename) :
+	mFilename	( Filename )
 {
-	//mExtractedMp4RootAtoms.push_back('Test');
+	auto ReadThread = [this]()
+	{
+		try
+		{
+			ReadFileThread();
+		}
+		catch(std::exception& e)
+		{
+			this->OnError(e.what());
+		}
+		//this->PushEndOfFile()
+	};
+	mReadFileThread = std::thread( ReadThread );
+}
+
+DataSourceFile_t::~DataSourceFile_t()
+{
+	OnError("Aborted");
+	if ( mReadFileThread.joinable() )
+		mReadFileThread.join();
+	mReadFileThread = {};
+}
+
+void DataSourceFile_t::OnError(std::string_view Error)
+{
+	std::lock_guard Lock(mDataLock);
+	mError += Error;
+}
+
+void DataSourceFile_t::ThrowIfError()
+{
+	std::lock_guard Lock(mDataLock);
+	if ( mError.empty() )
+		return;
 	
-	mInputSource.reset( new DataSourceBuffer_t );
+	throw std::runtime_error(mError);
+}
+
+void DataSourceFile_t::ReadFileThread()
+{
+	auto& Filename = mFilename;
+	
+	FILE* File = nullptr;
+	auto Error = fopen_s(&File,Filename.c_str(), "rb");
+	if ( !File )
+		throw std::runtime_error( std::string("Failed to open ") + Filename );
+	
+	std::vector<uint8_t> Buffer(1*1024*1024);
+	fseek(File, 0, SEEK_SET);
+	while (!feof(File))
+	{
+		ThrowIfError();
+		auto BytesRead = fread( Buffer.data(), 1, Buffer.size(), File );
+		auto DataRead = std::span( Buffer.data(), BytesRead );
+		mFileReadBufferSource.PushData( DataRead );
+	}
+	fclose(File);
+	mFileReadBufferSource.PushEndOfFile();
+}
+
+void DataSourceFile_t::PushData(std::span<uint8_t> Data)
+{
+	throw std::runtime_error("Cannot push data into a DataSourceFile_t");
+}
+	
+void DataSourceFile_t::PushEndOfFile()
+{
+	throw std::runtime_error("Cannot push data into a DataSourceFile_t");
+}
+
+void DataSourceFile_t::LockData(size_t FilePosition,size_t Size,std::function<void(std::span<uint8_t>)> OnPeekData)
+{
+	return mFileReadBufferSource.LockData( FilePosition, Size, OnPeekData );
+}
+
+
+void DataSourceFile_t::LockData(std::function<void(std::span<uint8_t>,bool HadEof)> OnPeekData)
+{
+	return mFileReadBufferSource.LockData( OnPeekData );
+}
+
+bool DataSourceFile_t::HadEof()
+{
+	return mFileReadBufferSource.HadEof();
+}
+
+
+
+PopMp4::Decoder_t::Decoder_t(PopJson::ViewBase_t& Options)
+{
+	if ( Options.HasKey("Filename") )
+	{
+		auto Filename = Options["Filename"].GetString();
+		mInputSource.reset( new DataSourceFile_t(Filename) );
+	}
+	else
+	{
+		mInputSource.reset( new DataSourceBuffer_t );
+	}
 	
 	auto Thread = [this](void*)
 	{

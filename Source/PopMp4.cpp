@@ -39,7 +39,10 @@ DLL_EXPORT int PopMp4_CreateDecoderWithOptions(const char* OptionsJson,char* Err
 {
 	try
 	{
-		auto Instance = PopMp4::DecoderInstances.Alloc();
+		if ( !OptionsJson )
+			OptionsJson = "{}";
+		PopJson::Json_t Options( OptionsJson );
+		auto Instance = PopMp4::DecoderInstances.Alloc( Options );
 		return Instance;
 	}
 	catch(std::exception& e)

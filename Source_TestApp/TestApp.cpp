@@ -301,7 +301,7 @@ std::vector<uint8_t> LoadFile(const std::string& Filename)
  }
 
 
-TEST_P(Decode_Tests,DecodeAtomTree)
+TEST_P(Decode_Tests,DecodeAtomTree_PushData)
 {
 	auto Params = GetParam();
 	
@@ -408,6 +408,127 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 	
 	if ( ReadFileThread.joinable() )
 		ReadFileThread.join();
+	if ( ReadStateThread.joinable() )
+		ReadStateThread.join();
+	
+	if ( !Error.empty() )
+		FAIL() << Error;
+	
+	//	compare output data
+	auto& ExpectedRootAtoms = Params.ExpectedResults.RootAtoms;
+	EXPECT_EQ( FoundRootAtoms.GetChildCount(), ExpectedRootAtoms.size() );
+	
+	//	make sure atoms are as expected
+	{
+		auto FoundRootAtomNames = FoundRootAtoms.GetStringArray();
+		//	simplify test code, if this is the wrong size, above will have caught it
+		auto MaxRootAtoms = std::max<int>( FoundRootAtoms.GetChildCount(), ExpectedRootAtoms.size() );
+		FoundRootAtomNames.resize( MaxRootAtoms );
+		ExpectedRootAtoms.resize( MaxRootAtoms );
+		for ( int i=0;	i<FoundRootAtomNames.size();	i++ )
+		{
+			EXPECT_EQ( FoundRootAtomNames[i], ExpectedRootAtoms[i] );
+		}
+	}
+}
+
+TEST_P(Decode_Tests,DecodeAtomTree_WithFilename)
+{
+	auto Params = GetParam();
+	
+	PopJson::Json_t Options;
+	Options["Filename"] = Params.Filename;
+	auto Decoder = PopMp4_CreateDecoderWithOptions( Options.GetJsonString().c_str(), nullptr, 0 );
+	
+	auto TestStartTime = std::chrono::system_clock::now();
+	auto TestMaxDuration = std::chrono::seconds(20);
+	
+	std::mutex OutputLock;
+	std::string Error;
+	PopJson::Json_t FoundRootAtoms;
+	bool FinishedDecode = false;
+	
+	auto ThrowIfTimeout = [&]()
+	{
+		auto ElapsedSecs = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::system_clock::now() - TestStartTime );
+		if ( ElapsedSecs.count() > TestMaxDuration.count() )
+			throw std::runtime_error("Test timedout");
+	};
+	auto IsStillRunning = [&]()
+	{
+		try
+		{
+			ThrowIfTimeout();
+			std::scoped_lock Lock(OutputLock);
+			if ( FinishedDecode )
+				return false;
+			if ( !Error.empty() )
+				return false;
+			return true;
+		}
+		catch(...)
+		{
+			return false;
+		}
+	};
+	
+	
+	//	monitor state
+	auto ReadStateLoop = [&]()
+	{
+		std::vector<char> JsonBuffer( 1024 * 1024 * 1 );
+		while ( IsStillRunning() )
+		{
+			ThrowIfTimeout();
+			
+			PopMp4_GetDecoderState( Decoder, JsonBuffer.data(), JsonBuffer.size() );
+			
+			std::string MetaJson( JsonBuffer.data() );
+			PopJson::Json_t Meta(MetaJson);
+			
+			if ( Meta.HasKey( "Error" ) )
+			{
+				auto Error = Meta.GetValue("Error").GetString();
+				throw std::runtime_error( std::string(Error) );
+			}
+			
+			{
+				std::scoped_lock Lock(OutputLock);
+				auto Atoms = Meta.GetValue("RootAtoms");
+				FoundRootAtoms = PopJson::Json_t(Atoms);
+				std::cerr << "FoundRootAtoms; x" << FoundRootAtoms.GetChildCount() << "... ";
+				auto FoundRootAtomNames = FoundRootAtoms.GetStringArray();
+				for ( auto Child : FoundRootAtomNames )
+					std::cerr << Child << ",";
+				/*
+				 for ( auto Child : FoundRootAtoms.GetChildren() )
+				 {
+				 std::cerr << Child.GetValue(MetaJson).GetString(MetaJson) << ",";
+				 }
+				 */
+				std::cerr << std::endl;
+			}
+			
+			auto IsFinished = Meta.GetValue("IsFinished").GetBool();
+			if ( IsFinished )
+			{
+				std::scoped_lock Lock(OutputLock);
+				FinishedDecode = true;
+			}
+			
+			//	parse
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+	};
+	auto ReadStateThread = RunThreadSafely( ReadStateLoop, Error, OutputLock );
+	
+	
+	while ( IsStillRunning() )
+	{
+		std::cerr << GTEST_TEST_NAME << " waiting to finish..." << std::endl;
+		std::this_thread::sleep_for( std::chrono::seconds(1) );
+	}
+	
 	if ( ReadStateThread.joinable() )
 		ReadStateThread.join();
 	
