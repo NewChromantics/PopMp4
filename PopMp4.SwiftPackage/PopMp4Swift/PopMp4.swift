@@ -77,6 +77,7 @@ class PopMp4Instance
 		{
 			//var StateJson = PopMp4_GetDecodeStateJson(self.instance);
 			var StateJson = try self.instanceWrapper.getDecoderStateJson()
+			print(StateJson)
 			let StateJsonData = StateJson.data(using: .utf8)!
 			let Meta: Mp4Meta = try! JSONDecoder().decode(Mp4Meta.self, from: StateJsonData)
 			return Meta

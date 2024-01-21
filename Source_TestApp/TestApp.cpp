@@ -201,11 +201,13 @@ class DecodeResults_t
 {
 public:
 	std::vector<std::string>	RootAtoms;
-	
+	int32_t						BytesParsed = 0;
+
 	friend std::ostream& operator<<(std::ostream& os, const DecodeResults_t& Params)
 	{
 		os << "DecodeResults_t-->";
 		os << " RootAtoms=" << Params.RootAtoms.size();
+		os << " BytesParsed=" << Params.BytesParsed;
 		return os;
 	}
 };
@@ -233,8 +235,8 @@ class Decode_Tests : public testing::TestWithParam<DecodeTestParams_t>
 auto DecodeTestValues = ::testing::Values
 (
  //	gr: objective-c escapes forward slashes, this is optional in the spec
- DecodeTestParams_t{.Filename="TestData\\/Test.mp4", .ExpectedResults{.RootAtoms={"ftyp","wide","mdat","moov"}} },
- DecodeTestParams_t{.Filename="TestData/Test.mp4", .ExpectedResults{.RootAtoms={"ftyp","wide","mdat","moov"}} }
+ DecodeTestParams_t{.Filename="TestData\\/Test.mp4", .ExpectedResults{.BytesParsed=11127075,.RootAtoms={"ftyp","wide","mdat","moov"}} },
+ DecodeTestParams_t{.Filename="TestData/Test.mp4", .ExpectedResults{.BytesParsed=11127075,.RootAtoms={"ftyp","wide","mdat","moov"}} }
 );
 	
 INSTANTIATE_TEST_SUITE_P( Decode_Tests, Decode_Tests, DecodeTestValues );
@@ -319,6 +321,7 @@ TEST_P(Decode_Tests,DecodeAtomTree_PushData)
 	std::mutex OutputLock;
 	std::string Error;
 	PopJson::Json_t FoundRootAtoms;
+	PopJson::Json_t LastMeta;
 	bool FinishedDecode = false;
 	
 	auto ThrowIfTimeout = [&]()
@@ -358,6 +361,7 @@ TEST_P(Decode_Tests,DecodeAtomTree_PushData)
 			
 			std::string MetaJson( JsonBuffer.data() );
 			PopJson::Json_t Meta(MetaJson);
+			LastMeta = Meta;
 			
 			if ( Meta.HasKey( "Error" ) )
 			{
@@ -369,17 +373,6 @@ TEST_P(Decode_Tests,DecodeAtomTree_PushData)
 				std::scoped_lock Lock(OutputLock);
 				auto Atoms = Meta.GetValue("RootAtoms");
 				FoundRootAtoms = PopJson::Json_t(Atoms);
-				std::cerr << "FoundRootAtoms; x" << FoundRootAtoms.GetChildCount() << "... ";
-				auto FoundRootAtomNames = FoundRootAtoms.GetStringArray();
-				for ( auto Child : FoundRootAtomNames )
-					std::cerr << Child << ",";
-				/*
-				 for ( auto Child : FoundRootAtoms.GetChildren() )
-				 {
-				 std::cerr << Child.GetValue(MetaJson).GetString(MetaJson) << ",";
-				 }
-				 */
-				std::cerr << std::endl;
 			}
 			
 			auto IsFinished = Meta.GetValue("IsFinished").GetBool();
@@ -420,6 +413,10 @@ TEST_P(Decode_Tests,DecodeAtomTree_PushData)
 	if ( !Error.empty() )
 		FAIL() << Error;
 	
+	//	bytes parsed should be the entire file size
+	auto BytesParsed = LastMeta["Mp4BytesParsed"].GetInteger();
+	EXPECT_EQ( BytesParsed, Params.ExpectedResults.BytesParsed );
+
 	//	compare output data
 	auto& ExpectedRootAtoms = Params.ExpectedResults.RootAtoms;
 	EXPECT_EQ( FoundRootAtoms.GetChildCount(), ExpectedRootAtoms.size() );

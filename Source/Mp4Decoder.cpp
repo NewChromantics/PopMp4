@@ -912,7 +912,7 @@ PopJson::Json_t PopMp4::Decoder_t::GetState()
 	Meta["IsFinished"] = mDecoderThreadFinished;
 	Meta["RootAtoms"].PushBack( mExtractedMp4RootAtoms, [&](const uint32_t& Fourcc){	return GetFourccString(Fourcc,true);	} );
 	//Meta["AtomTree"] = mAtomTree;
-	//Meta["Mp4BytesParsed"] = mMp4BytesParsed;
+	Meta["Mp4BytesParsed"] = mMp4BytesParsed;
 
 	return Meta;
 }
