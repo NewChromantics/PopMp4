@@ -169,7 +169,8 @@ protected:
 	bool						mDecoderThreadFinished = false;	//	will parse no more data
 
 	std::mutex					mDataLock;
-	size_t						mMp4BytesRead = 0;
+	size_t						mMp4BytesParsed = 0;
 	std::string					mError;
-	std::vector<uint32_t>		mExtractedMp4RootAtoms;
+	std::vector<uint32_t>		mExtractedMp4RootAtoms;	//	deprecationg for atom tree
+	PopJson::Json_t				mAtomTree;
 };

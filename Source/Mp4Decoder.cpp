@@ -831,13 +831,13 @@ bool PopMp4::Decoder_t::DecodeIteration()
 	bool IsFinished = false;
 	auto OnLockedAllData = [&](std::span<uint8_t> AllData,bool HadEof)
 	{
-		IsFinished = mMp4BytesRead == AllData.size_bytes() && HadEof;
+		IsFinished = mMp4BytesParsed == AllData.size_bytes() && HadEof;
 	};
 	mInputSource->LockData(OnLockedAllData);
 	if ( IsFinished )
 		return false;
 	
-	ExternalReader_t Reader(mMp4BytesRead,ReadFileBytes);
+	ExternalReader_t Reader(mMp4BytesParsed,ReadFileBytes);
 
 	//	gr: due to race conditions, it's possible that we've reached EOF after the check above
 	//		but inside ReadNextAtom, so catch a bad read here and if it turns out we're "now" at
@@ -873,7 +873,7 @@ bool PopMp4::Decoder_t::DecodeIteration()
 	}
 	
 	//	move onto next atom (this skips data, even if we've not downloaded it yet)
-	mMp4BytesRead += Atom.AtomSize();
+	mMp4BytesParsed += Atom.AtomSize();
 		
 	return true;
 }
@@ -911,6 +911,8 @@ PopJson::Json_t PopMp4::Decoder_t::GetState()
 	
 	Meta["IsFinished"] = mDecoderThreadFinished;
 	Meta["RootAtoms"].PushBack( mExtractedMp4RootAtoms, [&](const uint32_t& Fourcc){	return GetFourccString(Fourcc,true);	} );
+	//Meta["AtomTree"] = mAtomTree;
+	//Meta["Mp4BytesParsed"] = mMp4BytesParsed;
 
 	return Meta;
 }
