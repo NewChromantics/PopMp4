@@ -29,8 +29,12 @@ struct PopMp4Error : LocalizedError
 
 
 
-public struct AtomMeta: Decodable, Identifiable
+public struct AtomMeta: Decodable, Identifiable, Hashable
 {
+	public static func == (lhs: AtomMeta, rhs: AtomMeta) -> Bool {
+		lhs.id == rhs.id
+	}
+	
 	//	uid required to be iterable. todo: generate uid for tree so elements stay persistent
 	public let id = UUID()
 	
