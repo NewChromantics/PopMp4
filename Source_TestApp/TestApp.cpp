@@ -232,7 +232,7 @@ class Decode_Tests : public testing::TestWithParam<DecodeTestParams_t>
 
 auto DecodeTestValues = ::testing::Values
 (
- DecodeTestParams_t{.Filename="TestData/Test.mp4", .ExpectedResults{.RootAtoms={"a","b","c"}} }
+ DecodeTestParams_t{.Filename="TestData/Test.mp4", .ExpectedResults{.RootAtoms={"ftyp","wide","mdat","moov"}} }
 );
 	
 INSTANTIATE_TEST_SUITE_P( Decode_Tests, Decode_Tests, DecodeTestValues );
@@ -306,10 +306,10 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 	auto Params = GetParam();
 	
 	auto Decoder = PopMp4_CreateDecoder();
-
+	
 	auto TestStartTime = std::chrono::system_clock::now();
 	auto TestMaxDuration = std::chrono::seconds(20);
-
+	
 	std::mutex OutputLock;
 	std::string Error;
 	PopJson::Json_t FoundRootAtoms;
@@ -339,7 +339,7 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 		}
 	};
 	
-
+	
 	//	monitor state
 	auto ReadStateLoop = [&]()
 	{
@@ -363,7 +363,17 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 				std::scoped_lock Lock(OutputLock);
 				auto Atoms = Meta.GetValue("RootAtoms");
 				FoundRootAtoms = PopJson::Json_t(Atoms);
-				std::cerr << "FoundRootAtoms; x" << FoundRootAtoms.GetChildCount() << std::endl;
+				std::cerr << "FoundRootAtoms; x" << FoundRootAtoms.GetChildCount() << "... ";
+				auto FoundRootAtomNames = FoundRootAtoms.GetStringArray();
+				for ( auto Child : FoundRootAtomNames )
+					std::cerr << Child << ",";
+				/*
+				 for ( auto Child : FoundRootAtoms.GetChildren() )
+				 {
+				 std::cerr << Child.GetValue(MetaJson).GetString(MetaJson) << ",";
+				 }
+				 */
+				std::cerr << std::endl;
 			}
 			
 			auto IsFinished = Meta.GetValue("IsFinished").GetBool();
@@ -384,11 +394,11 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 		std::cerr << "Read " << Data.size() << "bytes; eof=" << Eof << std::endl;
 		PopMp4_PushMp4Data( Decoder, Data.data(), Data.size(), Eof );
 	};
-
-
+	
+	
 	auto ReadFileThread = ::ReadFileThread( Params.Filename, OnReadData, Error, OutputLock );
 	auto ReadStateThread = RunThreadSafely( ReadStateLoop, Error, OutputLock );
-
+	
 	
 	while ( IsStillRunning() )
 	{
@@ -400,10 +410,24 @@ TEST_P(Decode_Tests,DecodeAtomTree)
 		ReadFileThread.join();
 	if ( ReadStateThread.joinable() )
 		ReadStateThread.join();
-
+	
 	if ( !Error.empty() )
 		FAIL() << Error;
 	
-	//	todo: compare contents
-	EXPECT_EQ( FoundRootAtoms.GetChildCount(), Params.ExpectedResults.RootAtoms.size() );
+	//	compare output data
+	auto& ExpectedRootAtoms = Params.ExpectedResults.RootAtoms;
+	EXPECT_EQ( FoundRootAtoms.GetChildCount(), ExpectedRootAtoms.size() );
+	
+	//	make sure atoms are as expected
+	{
+		auto FoundRootAtomNames = FoundRootAtoms.GetStringArray();
+		//	simplify test code, if this is the wrong size, above will have caught it
+		auto MaxRootAtoms = std::max<int>( FoundRootAtoms.GetChildCount(), ExpectedRootAtoms.size() );
+		FoundRootAtomNames.resize( MaxRootAtoms );
+		ExpectedRootAtoms.resize( MaxRootAtoms );
+		for ( int i=0;	i<FoundRootAtomNames.size();	i++ )
+		{
+			EXPECT_EQ( FoundRootAtomNames[i], ExpectedRootAtoms[i] );
+		}
+	}
 }
