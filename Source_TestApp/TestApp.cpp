@@ -306,6 +306,10 @@ std::vector<uint8_t> LoadFile(const std::string& Filename)
 TEST_P(Decode_Tests,DecodeAtomTree_PushData)
 {
 	auto Params = GetParam();
+
+	//	in this test, we won't be able to open json-escaped filenames
+	if ( Params.Filename.find('\\') != std::string::npos )
+		return;
 	
 	auto Decoder = PopMp4_CreateDecoder();
 	
