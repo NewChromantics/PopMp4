@@ -232,6 +232,8 @@ class Decode_Tests : public testing::TestWithParam<DecodeTestParams_t>
 
 auto DecodeTestValues = ::testing::Values
 (
+ //	gr: objective-c escapes forward slashes, this is optional in the spec
+ DecodeTestParams_t{.Filename="TestData\\/Test.mp4", .ExpectedResults{.RootAtoms={"ftyp","wide","mdat","moov"}} },
  DecodeTestParams_t{.Filename="TestData/Test.mp4", .ExpectedResults{.RootAtoms={"ftyp","wide","mdat","moov"}} }
 );
 	
@@ -439,7 +441,7 @@ TEST_P(Decode_Tests,DecodeAtomTree_WithFilename)
 	PopJson::Json_t Options;
 	Options["Filename"] = Params.Filename;
 	auto Decoder = PopMp4_CreateDecoderWithOptions( Options.GetJsonString().c_str(), nullptr, 0 );
-	
+	 
 	auto TestStartTime = std::chrono::system_clock::now();
 	auto TestMaxDuration = std::chrono::seconds(20);
 	
