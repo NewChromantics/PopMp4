@@ -29,9 +29,16 @@ struct PopMp4Error : LocalizedError
 
 public struct Mp4Meta: Decodable
 {
-	let Error: String?
-	let RootAtoms : [String]?	//	will be a tree
-	let IsFinished: Bool?		//	decoder has finished - will be missing if just an error
+	public let Error: String?
+	public let RootAtoms : [String]?	//	will be a tree
+	public let IsFinished: Bool?		//	decoder has finished - will be missing if just an error
+	public let Mp4BytesParsed : Int?
+	
+	public var debug: String
+	{
+		let BytesParsed = Mp4BytesParsed ?? 0
+		return "Parsed \(BytesParsed) bytes"
+	}
 }
 
 //	based on public class CondenseStream
@@ -63,7 +70,7 @@ class PopMp4Instance
 	{
 		if ( allocationError != nil )
 		{
-			return Mp4Meta( Error:allocationError, RootAtoms:nil, IsFinished:true )
+			return Mp4Meta( Error:allocationError, RootAtoms:nil, IsFinished:true, Mp4BytesParsed:0 )
 		}
 		
 		do
@@ -77,7 +84,7 @@ class PopMp4Instance
 		catch let error as Error
 		{
 			let OutputError = "Error getting decoder state; \(error.localizedDescription)"
-			return Mp4Meta( Error:OutputError, RootAtoms:nil, IsFinished:true )
+			return Mp4Meta( Error:OutputError, RootAtoms:nil, IsFinished:true, Mp4BytesParsed:nil )
 		}
 	}
 
@@ -105,7 +112,8 @@ public class Mp4ViewModel : ObservableObject
 
 	@Published public var atomTree : [String]
 	@Published public var loadingStatus = LoadingStatus.Init
-	@Published public var error : String?
+	@Published public var lastMeta : Mp4Meta
+	public var error: String?	{	return lastMeta.Error;	}
 	var mp4Decoder : PopMp4Instance?
 	
 	
@@ -113,6 +121,7 @@ public class Mp4ViewModel : ObservableObject
 	{
 		self.mp4Decoder = nil
 		self.atomTree = []
+		self.lastMeta = Mp4Meta( Error:nil, RootAtoms:nil, IsFinished:false, Mp4BytesParsed:0 )
 	}
 	
 	@MainActor // as we change published variables, we need to run on the main thread
@@ -127,6 +136,7 @@ public class Mp4ViewModel : ObservableObject
 
 			//	todo: return struct with error, tree, other meta
 			var NewMeta = try await self.mp4Decoder!.WaitForMetaChange()
+			self.lastMeta = NewMeta
 			
 			//	update data
 			if ( NewMeta.RootAtoms != nil )
@@ -136,7 +146,6 @@ public class Mp4ViewModel : ObservableObject
 			
 			if ( NewMeta.Error != nil )
 			{
-				self.error = NewMeta.Error
 				self.loadingStatus = LoadingStatus.Error
 				return
 			}
