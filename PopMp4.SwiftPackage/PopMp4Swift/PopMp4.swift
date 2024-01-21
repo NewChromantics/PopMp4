@@ -27,12 +27,50 @@ struct PopMp4Error : LocalizedError
 	}
 }
 
+
+
+public struct AtomMeta: Decodable, Identifiable
+{
+	//	uid required to be iterable. todo: generate uid for tree so elements stay persistent
+	public let id = UUID()
+	
+	public let Fourcc: String
+	public let AtomSizeBytes : Int		//	header + content size
+	public let HeaderSizeBytes : Int
+	public let ContentSizeBytes : Int
+	public let ContentsFilePosition : Int
+
+	public let Children : [AtomMeta]?
+	
+	
+}
+
 public struct Mp4Meta: Decodable
 {
+	//	gr: using =nil seems to be breaking parsing
 	public let Error: String?
 	public let RootAtoms : [String]?	//	will be a tree
 	public let IsFinished: Bool?		//	decoder has finished - will be missing if just an error
 	public let Mp4BytesParsed : Int?
+	public let AtomTree : [AtomMeta]?
+	
+	init(Error:String)
+	{
+		self.Error = Error
+		RootAtoms = nil
+		IsFinished = true
+		Mp4BytesParsed = nil
+		AtomTree = nil
+	}
+	
+	init()
+	{
+		Error = nil
+		RootAtoms = nil
+		IsFinished = true
+		Mp4BytesParsed = nil
+		AtomTree = nil
+	}
 	
 	public var debug: String
 	{
@@ -70,7 +108,8 @@ class PopMp4Instance
 	{
 		if ( allocationError != nil )
 		{
-			return Mp4Meta( Error:allocationError, RootAtoms:nil, IsFinished:true, Mp4BytesParsed:0 )
+			//return Mp4Meta( Error:allocationError, RootAtoms:nil, IsFinished:true, Mp4BytesParsed:0 )
+			return Mp4Meta( Error:allocationError! )
 		}
 		
 		do
@@ -85,7 +124,7 @@ class PopMp4Instance
 		catch let error as Error
 		{
 			let OutputError = "Error getting decoder state; \(error.localizedDescription)"
-			return Mp4Meta( Error:OutputError, RootAtoms:nil, IsFinished:true, Mp4BytesParsed:nil )
+			return Mp4Meta( Error:OutputError )
 		}
 	}
 
@@ -111,7 +150,6 @@ public class Mp4ViewModel : ObservableObject
 	}
 
 
-	@Published public var atomTree : [String]
 	@Published public var loadingStatus = LoadingStatus.Init
 	@Published public var lastMeta : Mp4Meta
 	public var error: String?	{	return lastMeta.Error;	}
@@ -121,8 +159,7 @@ public class Mp4ViewModel : ObservableObject
 	public init()
 	{
 		self.mp4Decoder = nil
-		self.atomTree = []
-		self.lastMeta = Mp4Meta( Error:nil, RootAtoms:nil, IsFinished:false, Mp4BytesParsed:0 )
+		self.lastMeta = Mp4Meta()
 	}
 	
 	@MainActor // as we change published variables, we need to run on the main thread
@@ -139,12 +176,13 @@ public class Mp4ViewModel : ObservableObject
 			var NewMeta = try await self.mp4Decoder!.WaitForMetaChange()
 			self.lastMeta = NewMeta
 			
+			/*
 			//	update data
 			if ( NewMeta.RootAtoms != nil )
 			{
 				self.atomTree = NewMeta.RootAtoms!
 			}
-			
+			*/
 			if ( NewMeta.Error != nil )
 			{
 				self.loadingStatus = LoadingStatus.Error

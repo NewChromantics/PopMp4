@@ -813,6 +813,31 @@ void PopMp4::Decoder_t::ValidateAtom(Atom_t& Atom)
 	}
 }
 
+json11::Json::object GetAtomMeta(Atom_t& Atom)
+{
+	json11::Json::object AtomJson;
+	AtomJson["Fourcc"] = Atom.GetFourccString();
+	AtomJson["AtomSizeBytes"] = (int)Atom.AtomSize();
+	AtomJson["HeaderSizeBytes"] = (int)Atom.HeaderSize();
+	AtomJson["ContentSizeBytes"] = (int)Atom.ContentSize();
+	AtomJson["ContentsFilePosition"] = (int)Atom.ContentsFilePosition();
+
+	json11::Json::array AtomChildrenJson;
+	for ( auto& Child : Atom.mChildAtoms )
+	{
+		auto ChildJson = GetAtomMeta( Child );
+		AtomChildrenJson.push_back( ChildJson );
+	}
+	
+	if ( !AtomChildrenJson.empty() )
+	{
+		AtomJson["Children"] = AtomChildrenJson;
+	}
+
+	return AtomJson;
+}
+
+
 bool PopMp4::Decoder_t::DecodeIteration()
 {
 	//	would be good to have a functor for ExternalReader which locks the data rather than needing to copy
@@ -848,6 +873,22 @@ bool PopMp4::Decoder_t::DecodeIteration()
 		Atom = Reader.ReadNextAtom();
 		ValidateAtom(Atom);
 		
+		//	should be able to read children here
+		try
+		{
+			Atom.DecodeChildAtoms( ReadFileBytes );
+		}
+		catch(TNeedMoreDataException& e)
+		{
+			//	this will loop around
+			throw;
+		}
+		catch(std::exception& e)
+		{
+			//	maybe child isn't full of child atoms
+			std::cerr << "Failed to get children in atom " << Atom.GetFourccString() << "; " << e.what() << std::endl;
+		}
+		
 		//	this will read the contents, if it fails because we need more data, we won't move along the bytes read yet
 		//ProcessAtom( Atom, ReadFileBytes );
 		std::scoped_lock Lock(mDataLock);
@@ -872,14 +913,11 @@ bool PopMp4::Decoder_t::DecodeIteration()
 		 */
 	}
 	
-	
-	PopJson::Json_t AtomJson;
-	AtomJson["Fourcc"] = Atom.GetFourccString();
-	AtomJson["HeaderSizeBytes"] = Atom.HeaderSize();
-	AtomJson["ContentSizeBytes"] = Atom.ContentSize();
-	//	todo: enumerate children
-	mAtomTree.PushBack(AtomJson);
-
+	//	save meta
+	{
+		auto AtomJson = GetAtomMeta( Atom );
+		mAtomTree.push_back(AtomJson);
+	}
 	
 	//	move onto next atom (this skips data, even if we've not downloaded it yet)
 	mMp4BytesParsed += Atom.AtomSize();
@@ -908,9 +946,9 @@ void PopMp4::Decoder_t::PushEndOfFile()
 	WakeDecoderThread();
 }
 
-PopJson::Json_t PopMp4::Decoder_t::GetState()
+json11::Json::object PopMp4::Decoder_t::GetState()
 {
-	PopJson::Json_t Meta;
+	json11::Json::object Meta;
 	
 	std::scoped_lock Lock(mDataLock);
 	if ( !mError.empty() )
@@ -919,8 +957,16 @@ PopJson::Json_t PopMp4::Decoder_t::GetState()
 	}
 	
 	Meta["IsFinished"] = mDecoderThreadFinished;
-	Meta["RootAtoms"].PushBack( mExtractedMp4RootAtoms, [&](const uint32_t& Fourcc){	return GetFourccString(Fourcc,true);	} );
-	Meta["Mp4BytesParsed"] = mMp4BytesParsed;
+
+	json11::Json::array RootAtoms;
+	for ( auto ExtractedMp4RootAtom : mExtractedMp4RootAtoms )
+	{
+		RootAtoms.push_back( GetFourccString(ExtractedMp4RootAtom,true) );
+	}
+	//Meta["RootAtoms"].PushBack( mExtractedMp4RootAtoms, [&](const uint32_t& Fourcc){	return GetFourccString(Fourcc,true);	} );
+	Meta["RootAtoms"] = RootAtoms;
+
+	Meta["Mp4BytesParsed"] = (int)mMp4BytesParsed;
 	Meta["AtomTree"] = mAtomTree;
 
 	return Meta;

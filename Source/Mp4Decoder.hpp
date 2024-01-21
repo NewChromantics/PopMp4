@@ -3,6 +3,7 @@
 #include <span>
 #include <thread>
 #include "../Source_TestApp/PopJson/PopJson.hpp"
+#include "Json11/json11.hpp"
 
 class Atom_t;
 
@@ -150,7 +151,7 @@ public:
 	
 	void			PushData(std::span<uint8_t> Data);
 	void			PushEndOfFile();
-	PopJson::Json_t	GetState();
+	json11::Json::object	GetState();
 	
 protected:
 	void		DecoderThread();
@@ -172,5 +173,6 @@ protected:
 	size_t						mMp4BytesParsed = 0;
 	std::string					mError;
 	std::vector<uint32_t>		mExtractedMp4RootAtoms;	//	deprecationg for atom tree
-	PopJson::Json_t				mAtomTree;
+	//PopJson::Json_t				mAtomTree;
+	json11::Json::array			mAtomTree;	//	array of root atom objects 
 };
