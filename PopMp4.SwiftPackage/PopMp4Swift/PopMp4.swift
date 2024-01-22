@@ -79,7 +79,8 @@ public struct Mp4Meta: Decodable
 	public var debug: String
 	{
 		let BytesParsed = Mp4BytesParsed ?? 0
-		return "Parsed \(BytesParsed) bytes"
+		let MbParsed = Double(String(format: "%.2f", Double(BytesParsed)/1024.0/1024.0))!
+		return "Parsed \(MbParsed) MB"
 	}
 }
 
