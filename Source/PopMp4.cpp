@@ -98,6 +98,7 @@ DLL_EXPORT void PopMp4_GetDecoderState(int Instance,char* JsonBuffer,int JsonBuf
 	{
 		auto pInstance = PopMp4::DecoderInstances.GetInstance(Instance);
 		auto Meta = pInstance->GetState();
+		Meta["Instance"] = Instance;
 		//auto Json = Meta.GetJsonString();
 		auto Json = json11::Json(Meta).dump();
 		StringCopyToBuffer( Json, JsonBuffer, JsonBufferSize );
