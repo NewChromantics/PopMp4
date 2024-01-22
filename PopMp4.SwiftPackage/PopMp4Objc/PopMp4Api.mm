@@ -19,16 +19,16 @@ NSError* GetError(NSException* exception)
 }
 
 @implementation Mp4DecoderWrapper
+{
+	int instance;
+}
 
-int mInstance = PopMp4Decoder_NullInstance;
-
-/*	doesnt seem to need to be implemented
 - (id)init
 {
 	self = [super init];
-	mInstance = PopMp4Decoder_NullInstance;
+	instance = PopMp4Decoder_NullInstance;
 	return self;
-}*/
+}
 
 - (void)allocateWithFilename:(NSString*)Filename error:(NSError**)throwError __attribute__((swift_error(nonnull_error)))
 {
@@ -37,7 +37,7 @@ int mInstance = PopMp4Decoder_NullInstance;
 	{
 		@try
 		{
-			mInstance = PopMp4_AllocDecoder(Filename);
+			instance = PopMp4_AllocDecoder(Filename);
 		}
 		@catch (NSException* exception)
 		{
@@ -56,7 +56,7 @@ int mInstance = PopMp4Decoder_NullInstance;
 
 - (void)free
 {
-	PopMp4_FreeDecoder(mInstance);
+	PopMp4_FreeDecoder(instance);
 	//mInstance = PopMp4Decoder_NullInstance;
 }
 
@@ -67,7 +67,7 @@ int mInstance = PopMp4Decoder_NullInstance;
 	{
 		@try
 		{
-			return PopMp4_GetDecodeStateJson(mInstance);
+			return PopMp4_GetDecodeStateJson(instance);
 		}
 		@catch (NSException* exception)
 		{

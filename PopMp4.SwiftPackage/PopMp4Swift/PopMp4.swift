@@ -2,28 +2,16 @@ import SwiftUI
 import PopMp4Objc
 
 
-
-/*
-public func PopMp4_PrintVersion()
-{
-	var VersionThousand = CRStreamer_GetVersionThousand()
-	var Version = CRStreamer_GetVersion()
-	//var Version = "x"
-	//Version = CRStreamer_GetVersionThousand_Objc()
-	print("CRStreamer version \(Version) (\(VersionThousand))")
-}
- */
-
 struct PopMp4Error : LocalizedError
 {
-	let description: String
+	let error: String
 
 	init(_ description: String) {
-		self.description = description
+		error = description
 	}
 
 	var errorDescription: String? {
-		description
+		error
 	}
 }
 
@@ -49,22 +37,26 @@ public struct AtomMeta: Decodable, Identifiable, Hashable
 	
 }
 
-public struct Mp4Meta: Decodable
+public struct Mp4Meta: Decodable//, Identifiable
 {
+	//public let id = UUID()	//	no help with multiple documents showing same data
+
 	//	gr: using =nil seems to be breaking parsing
 	public let Error: String?
 	public let RootAtoms : [String]?	//	will be a tree
 	public let IsFinished: Bool?		//	decoder has finished - will be missing if just an error
 	public let Mp4BytesParsed : Int?
 	public let AtomTree : [AtomMeta]?
-	
-	init(Error:String)
+	public let Instance : Int?	//	debugging
+
+	init(error:String)
 	{
-		self.Error = Error
+		Error = error
 		RootAtoms = nil
 		IsFinished = true
 		Mp4BytesParsed = nil
 		AtomTree = nil
+		Instance = nil
 	}
 	
 	init()
@@ -74,14 +66,9 @@ public struct Mp4Meta: Decodable
 		IsFinished = true
 		Mp4BytesParsed = nil
 		AtomTree = nil
+		Instance = nil
 	}
-	
-	public var debug: String
-	{
-		let BytesParsed = Mp4BytesParsed ?? 0
-		let MbParsed = Double(String(format: "%.2f", Double(BytesParsed)/1024.0/1024.0))!
-		return "Parsed \(MbParsed) MB"
-	}
+
 }
 
 //	based on public class CondenseStream
@@ -95,12 +82,12 @@ class PopMp4Instance
 	{
 		do
 		{
-			self.instanceWrapper = Mp4DecoderWrapper()
-			try self.instanceWrapper.allocate(withFilename: Filename)
-			//self.instance = PopMp4_AllocDecoder(Filename)
+			instanceWrapper = Mp4DecoderWrapper()
+			try instanceWrapper.allocate(withFilename: Filename)
+			//instance = PopMp4_AllocDecoder(Filename)
 			var Version = PopMp4_GetVersion()
-			//print("Allocated instance \(self.instance); PopMp4 version \(Version)")
-			print("Allocated instance \(self.instanceWrapper); PopMp4 version \(Version)")
+			//print("Allocated instance \(instance); PopMp4 version \(Version)")
+			print("Allocated instance \(instanceWrapper); PopMp4 version \(Version)")
 		}
 		catch
 		{
@@ -113,15 +100,15 @@ class PopMp4Instance
 	{
 		if ( allocationError != nil )
 		{
-			//return Mp4Meta( Error:allocationError, RootAtoms:nil, IsFinished:true, Mp4BytesParsed:0 )
-			return Mp4Meta( Error:allocationError! )
+			//return Mp4Meta( eror:allocationError, RootAtoms:nil, IsFinished:true, Mp4BytesParsed:0 )
+			return Mp4Meta( error:allocationError! )
 		}
 		
 		do
 		{
-			//var StateJson = PopMp4_GetDecodeStateJson(self.instance);
-			var StateJson = try self.instanceWrapper.getDecoderStateJson()
-			print(StateJson)
+			//var StateJson = PopMp4_GetDecodeStateJson(instance);
+			var StateJson = try instanceWrapper.getDecoderStateJson()
+			//print(StateJson)
 			let StateJsonData = StateJson.data(using: .utf8)!
 			let Meta: Mp4Meta = try! JSONDecoder().decode(Mp4Meta.self, from: StateJsonData)
 			return Meta
@@ -129,7 +116,7 @@ class PopMp4Instance
 		catch let error as Error
 		{
 			let OutputError = "Error getting decoder state; \(error.localizedDescription)"
-			return Mp4Meta( Error:OutputError )
+			return Mp4Meta( error:OutputError )
 		}
 	}
 
@@ -163,34 +150,35 @@ public class Mp4ViewModel : ObservableObject
 	
 	public init()
 	{
-		self.mp4Decoder = nil
-		self.lastMeta = Mp4Meta()
+		mp4Decoder = nil
+		lastMeta = Mp4Meta()
+		print("new Mp4ViewModel")
 	}
 	
 	@MainActor // as we change published variables, we need to run on the main thread
 	public func Load(filename: String) async throws
 	{
-		self.loadingStatus = LoadingStatus.Loading
-		self.mp4Decoder = PopMp4Instance(Filename: filename)
+		loadingStatus = LoadingStatus.Loading
+		mp4Decoder = PopMp4Instance(Filename: filename)
 		
 		while ( true )
 		{
 			try await Task.sleep(nanoseconds: 10_000_000)
 
 			//	todo: return struct with error, tree, other meta
-			var NewMeta = try await self.mp4Decoder!.WaitForMetaChange()
-			self.lastMeta = NewMeta
+			var NewMeta = try await mp4Decoder!.WaitForMetaChange()
+			lastMeta = NewMeta
 			
 			/*
 			//	update data
 			if ( NewMeta.RootAtoms != nil )
 			{
-				self.atomTree = NewMeta.RootAtoms!
+				atomTree = NewMeta.RootAtoms!
 			}
 			*/
 			if ( NewMeta.Error != nil )
 			{
-				self.loadingStatus = LoadingStatus.Error
+				loadingStatus = LoadingStatus.Error
 				return
 			}
 			
@@ -200,6 +188,6 @@ public class Mp4ViewModel : ObservableObject
 				break
 			}
 		}
-		self.loadingStatus = LoadingStatus.Finished
+		loadingStatus = LoadingStatus.Finished
 	}
 }
