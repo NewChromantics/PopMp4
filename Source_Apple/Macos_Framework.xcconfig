@@ -5,7 +5,8 @@ PRODUCT_NAME = $(TARGET_NAME)
 
 //SDKROOT = macosx
 SDKROOT = auto
-SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx
+//appletvsimulator appletvos macosx ios iphoneos iphonesimulator
+//SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx
 
 //ENABLE_HARDENED_RUNTIME = YES
 ENABLE_HARDENED_RUNTIME = NO
