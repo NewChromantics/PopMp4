@@ -16,7 +16,7 @@ struct PopMp4Error : LocalizedError
 }
 
 
-
+//	recursive atom struct
 public struct AtomMeta: Decodable, Identifiable, Hashable
 {
 	public static func == (lhs: AtomMeta, rhs: AtomMeta) -> Bool {
@@ -33,14 +33,42 @@ public struct AtomMeta: Decodable, Identifiable, Hashable
 	public let ContentsFilePosition : Int
 
 	public let Children : [AtomMeta]?
-	
-	
 }
 
-public struct Mp4Meta: Decodable//, Identifiable
+public struct SampleMeta : Decodable, Identifiable, Hashable
 {
-	//public let id = UUID()	//	no help with multiple documents showing same data
+	public static func == (lhs: SampleMeta, rhs: SampleMeta) -> Bool {
+		lhs.id == rhs.id
+	}
+	
+	//	uid required to be iterable. todo: generate uid for tree so elements stay persistent
+	public let id = UUID()
+	
+	public let Keyframe: Bool
+	public let FilePosition: Int
+	public let DataSize: Int
+	public let DecodeTimeMs: Int
+	public let PresentationTimeMs: Int
+	public let DurationMs: Int
+}
 
+public struct TrackMeta : Decodable, Identifiable, Hashable
+{
+	public static func == (lhs: TrackMeta, rhs: TrackMeta) -> Bool {
+		lhs.id == rhs.id
+	}
+	
+	//	uid required to be iterable. todo: generate uid for tree so elements stay persistent
+	public let id = UUID()
+	
+	public let Codec: String
+	//public let TrackNumber : Int		//	these start at 1 in mp4s!
+	public let Samples : [SampleMeta]?
+	public let SampleDecodeTimes : [Int]	//	to save json memory (structs are too big!) just a list of decode ms's for now
+}
+
+public struct Mp4Meta: Decodable
+{
 	//	gr: using =nil seems to be breaking parsing
 	public let Error: String?
 	public let RootAtoms : [String]?	//	will be a tree
@@ -48,6 +76,7 @@ public struct Mp4Meta: Decodable//, Identifiable
 	public let Mp4BytesParsed : Int?
 	public let AtomTree : [AtomMeta]?
 	public let Instance : Int?	//	debugging
+	let Tracks : [TrackMeta]?
 
 	init(error:String)
 	{
@@ -57,6 +86,7 @@ public struct Mp4Meta: Decodable//, Identifiable
 		Mp4BytesParsed = nil
 		AtomTree = nil
 		Instance = nil
+		Tracks = nil
 	}
 	
 	init()
@@ -67,8 +97,16 @@ public struct Mp4Meta: Decodable//, Identifiable
 		Mp4BytesParsed = nil
 		AtomTree = nil
 		Instance = nil
+		Tracks = nil
 	}
 
+	public var tracks : [TrackMeta]
+	{
+		get
+		{
+			return Tracks ?? []
+		}
+	}
 }
 
 //	based on public class CondenseStream

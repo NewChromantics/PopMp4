@@ -19,8 +19,7 @@ public:
 };
 
 
-//	ReadBytes( FillThisBufferSize, FilePosition )
-typedef std::function<bool(std::span<uint8_t>,size_t)> ReadBytesFunc_t;
+typedef std::function<void(std::span<uint8_t>,size_t FilePosition)> ReadBytesFunc_t;
 class Atom_t;
 
 class DataReader_t

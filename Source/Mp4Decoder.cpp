@@ -813,6 +813,135 @@ void PopMp4::Decoder_t::ValidateAtom(Atom_t& Atom)
 	}
 }
 
+void PopMp4::Decoder_t::ProcessAtom(Atom_t& Atom,std::function<void(std::span<uint8_t>,size_t FilePosition)> ReadFileBytes)
+{
+	switch( Atom.Fourcc )
+	{
+		case 'moov':
+			ProcessAtom_Moov(Atom,ReadFileBytes);
+			return;
+			
+		default:
+			break;
+	}
+	
+	//	should be able to read children here
+	try
+	{
+		Atom.DecodeChildAtoms( ReadFileBytes );
+	}
+	catch(TNeedMoreDataException& e)
+	{
+		//	this will loop around
+		throw;
+	}
+	catch(std::exception& e)
+	{
+		//	maybe child isn't full of child atoms
+		std::cerr << "Failed to get children in atom " << Atom.GetFourccString() << "; " << e.what() << std::endl;
+	}
+}
+
+json11::Json::object GetMeta(MediaHeader_t& Track)
+{
+	json11::Json::object Meta;
+	if ( !Track.Codec )
+		Meta["Codec"] = "null codec";
+	else
+		Meta["Codec"] = Track.Codec->GetName();
+	
+	return Meta;
+}
+
+json11::Json::object GetMeta(Sample_t& Sample)
+{
+	json11::Json::object Meta;
+	Meta["Keyframe"] = Sample.IsKeyframe;
+	Meta["FilePosition"] = (int)Sample.DataFilePosition;
+	Meta["DataSize"] = (int)Sample.DataSize;
+	Meta["DecodeTimeMs"] = (int)Sample.DecodeTimeMs;
+	Meta["PresentationTimeMs"] = (int)Sample.PresentationTimeMs;
+	Meta["DurationMs"] = (int)Sample.DurationMs;
+
+	return Meta;
+}
+
+void PopMp4::Decoder_t::OnExtractedMp4Samples(std::vector<Sample_t>& Samples,MediaHeader_t& Meta)
+{
+	//	store track meta
+	//	gr: this is going to keep coming in for fragmented
+	{
+		auto TrackMeta = GetMeta(Meta);
+		
+		json11::Json::array SampleJsons;
+		for ( auto& Sample : Samples )
+		{
+			auto SampleMeta = GetMeta(Sample);
+			SampleJsons.push_back(SampleMeta);
+		}
+		//	gr: this is producing json that's way too big (>20mb)
+		//TrackMeta["Samples"] = SampleJsons;
+
+		json11::Json::array SampleDecodeTimeJsons;
+		for ( auto& Sample : Samples )
+		{
+			//	todo: handle 64bit!
+			SampleDecodeTimeJsons.push_back( static_cast<int>(Sample.DecodeTimeMs) );
+		}
+		TrackMeta["SampleDecodeTimes"] = SampleDecodeTimeJsons;
+
+		
+		
+		std::scoped_lock Lock(mDataLock);
+		mTracks.push_back(TrackMeta);
+	}
+	
+	
+	if ( !Meta.Codec || Meta.Codec->mFourcc != CodecAvc1_t::Fourcc )
+	{
+		auto CodecName = Meta.Codec ? Meta.Codec->GetName() : "(null)";
+		//std::cerr << "Ignoring " << Samples.size() << " samples for unhandled codec " << CodecName << " in track " << Meta.TrackNumber << std::endl;
+		return;
+	}
+
+	auto& Codec = dynamic_cast<CodecAvc1_t&>( *Meta.Codec );
+	//OnExtractedH264Codec( Codec, Meta.TrackNumber );
+
+/*
+	//	convert to our mp4 sample format
+	std::vector<Mp4Sample_t> NewSamples;
+	for ( auto& Sample : Samples )
+	{
+		Mp4Sample_t NewSample;
+		NewSample.mH264ContentType = H264::Content::Frame;
+		NewSample.mNaluFormat = H264::Naluformat::Avcc4;	//	should work this out in decoder
+		NewSample.mSize = Sample.DataSize;
+		NewSample.mFilePosition = Sample.DataFilePosition;
+		NewSample.mTrackId = 0;	//	todo:
+		NewSample.mFrameNumber = mInputSampleFrameCount;
+		NewSample.mDecodeTimeMs = Sample.DecodeTimeMs;
+		NewSample.mPresentationTimeMs = Sample.PresentationTimeMs;
+
+		NewSamples.push_back(NewSample);
+		//std::cerr << "sample #" << NewSample.mFrameNumber << " decode=" << Sample.DecodeTimeMs << " present=" << Sample.PresentationTimeMs << std::endl;
+		
+		mInputSampleFrameCount++;
+	}
+	PushMp4Samples( std::span<Mp4Sample_t>(NewSamples.data(),NewSamples.size()) );
+ */
+}
+
+
+void PopMp4::Decoder_t::ProcessAtom_Moov(Atom_t& Atom,std::function<void(std::span<uint8_t>,size_t FilePosition)> ReadFileBytes)
+{
+	auto OnSamples = [&](std::vector<Sample_t>& Samples,MediaHeader_t& Meta)
+	{
+		OnExtractedMp4Samples(Samples,Meta);
+	};
+	//auto ReadAtomData = Atom.GetContentsReader(ReadFileBytes);
+	Mp4::DecodeAtom_Moov( Atom, ReadFileBytes, OnSamples );
+}
+
 json11::Json::object GetAtomMeta(Atom_t& Atom)
 {
 	json11::Json::object AtomJson;
@@ -873,24 +1002,10 @@ bool PopMp4::Decoder_t::DecodeIteration()
 		Atom = Reader.ReadNextAtom();
 		ValidateAtom(Atom);
 		
-		//	should be able to read children here
-		try
-		{
-			Atom.DecodeChildAtoms( ReadFileBytes );
-		}
-		catch(TNeedMoreDataException& e)
-		{
-			//	this will loop around
-			throw;
-		}
-		catch(std::exception& e)
-		{
-			//	maybe child isn't full of child atoms
-			std::cerr << "Failed to get children in atom " << Atom.GetFourccString() << "; " << e.what() << std::endl;
-		}
 		
+		//	do extra processing for special atoms
 		//	this will read the contents, if it fails because we need more data, we won't move along the bytes read yet
-		//ProcessAtom( Atom, ReadFileBytes );
+		ProcessAtom( Atom, ReadFileBytes );
 		std::scoped_lock Lock(mDataLock);
 		mExtractedMp4RootAtoms.push_back(Atom.Fourcc);
 	}
@@ -968,6 +1083,7 @@ json11::Json::object PopMp4::Decoder_t::GetState()
 
 	Meta["Mp4BytesParsed"] = (int)mMp4BytesParsed;
 	Meta["AtomTree"] = mAtomTree;
+	Meta["Tracks"] = mTracks;
 
 	return Meta;
 }

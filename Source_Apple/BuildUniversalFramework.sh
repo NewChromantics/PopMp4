@@ -39,7 +39,8 @@ xcodebuild archive -scheme ${SCHEME_MACOS}  -archivePath $BUILDPATH_MACOS SKIP_I
 #xcodebuild archive -scheme ${SCHEME_TVOS}   -archivePath $BUILDPATH_IOS SKIP_INSTALL=NO -configuration ${CONFIGURATION} -destination ${DESTINATION_TVOS}
 
 
-if [ -d "${PRODUCT_PATH}" ] ; then
+#if [ -d "${PRODUCT_PATH}" ] ; then
+if [ true ] ; then
 	echo "Cleaning (deleting) old xcframework... (${PRODUCT_PATH})"
 	rm -rf ${PRODUCT_PATH}
 fi

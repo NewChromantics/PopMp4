@@ -86,7 +86,11 @@ Atom_t DataReader_t::ReadNextAtom()
 	}
 	
 	if ( Atom.AtomSize() < 8 )
-		throw std::runtime_error("Atom reported size as less than 8 bytes; not possible.");
+	{
+		std::stringstream Error;
+		Error << "Atom (" << Atom.GetFourccString() << ") reported size as less than 8 bytes; not possible.";
+		throw std::runtime_error(Error.str());
+	}
 	
 	//	dont extract data, but we do want to step over it	
 	//Atom.Data = ReadBytes( Atom.ContentSize() );
@@ -241,8 +245,7 @@ std::vector<uint8_t> Atom_t::GetContents(ReadBytesFunc_t ReadBytes)
 	std::span Data( Buffer );
 
 	auto ReadPos = ContentsFilePosition();
-	if ( !ReadBytes( Data, ReadPos ) )
-		throw TNeedMoreDataException();
+	ReadBytes( Data, ReadPos );
 	return Buffer;
 }
 
@@ -298,7 +301,15 @@ bool ViewReader_t::ReadFileBytes(std::span<uint8_t> Buffer,size_t FilePosition)
 
 bool ExternalReader_t::ReadFileBytes(std::span<uint8_t> Buffer, size_t FilePosition)
 {
-	return mReadBytes(Buffer, FilePosition);
+	try
+	{
+		mReadBytes(Buffer, FilePosition);
+		return true;
+	}
+	catch(TNeedMoreDataException& NeedMoreData)
+	{
+		return false;
+	}
 }
 
 void Atom_t::DecodeChildAtoms(ReadBytesFunc_t ReadBytes)
@@ -905,10 +916,25 @@ std::shared_ptr<Codec_t> Mp4::DecodeAtom_Avc1(Atom_t& Atom,ReadBytesFunc_t ReadB
 
 	//	remaining data is in atoms again, expecting typically
 	//	avcC (with actual codec data) and pasp (picture aspect)
-	while ( Reader.BytesRemaining() )
+	while ( true )
 	{
-		auto ChildAtom = Reader.ReadNextAtom();
-		Atom.mChildAtoms.push_back(ChildAtom);
+		auto BytesRemaining = Reader.BytesRemaining();
+		try
+		{
+			auto ChildAtom = Reader.ReadNextAtom();
+			Atom.mChildAtoms.push_back(ChildAtom);
+		}
+		catch(TNeedMoreDataException& NeedMoreData)
+		{
+			throw;
+		}
+		catch(std::exception& Error)
+		{
+			//	we sometimes come across some atoms which don't seem to align... are they padding? (4 bytes of zeroes...)
+			std::cerr << "Failed to get child atom in " << Atom.GetFourccString() << "; " << Error.what() << " with " << BytesRemaining << " bytes remaining" << std::endl;
+			//	todo: store this as "extra data"
+			break;
+		}
 	}
 
 	//	explicitly decode avcc codec data (sps, pps in avcc format)
@@ -1221,7 +1247,8 @@ std::string GetFourccsString(std::span<uint32_t> Fourccs,bool Reversed)
 			}
 			else
 			{
-				String << " ";
+				if ( i != 0 )
+					String << " ";
 				WriteHex( String, Value );
 			}
 		}

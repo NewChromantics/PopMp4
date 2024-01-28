@@ -79,7 +79,7 @@
 		BF43661A2B4AE80B00009182 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
 		BF43661B2B4AE80B00009182 /* Apple.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Apple.xcconfig; sourceTree = "<group>"; };
 		BF43661C2B4AE80B00009182 /* BuildUniversalFramework.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = BuildUniversalFramework.sh; sourceTree = "<group>"; };
-		BF43661D2B4AE81400009182 /* PopMp4.SwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = PopMp4.SwiftPackage; sourceTree = "<group>"; };
+		BF43661D2B4AE81400009182 /* PopMp4.xSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = PopMp4.xSwiftPackage; sourceTree = "<group>"; };
 		BF43661F2B4AEC6500009182 /* Mp4Decoder.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Mp4Decoder.cpp; sourceTree = "<group>"; };
 		BF4366202B4AEC6500009182 /* Mp4Decoder.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Mp4Decoder.hpp; sourceTree = "<group>"; };
 		BF4366212B4AEF6C00009182 /* InstanceManager.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = InstanceManager.hpp; sourceTree = "<group>"; };
@@ -172,7 +172,7 @@
 			isa = PBXGroup;
 			children = (
 				BF4366322B4AFA5F00009182 /* Frameworks */,
-				BF43661D2B4AE81400009182 /* PopMp4.SwiftPackage */,
+				BF43661D2B4AE81400009182 /* PopMp4.xSwiftPackage */,
 				BFC7E7B126F0B6500032E0DB /* Products */,
 				BF4366152B4ADD6C00009182 /* Readme.md */,
 				BFC7E7B226F0B6500032E0DB /* Source */,
@@ -328,6 +328,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		BF4366462B4B059A00009182 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);

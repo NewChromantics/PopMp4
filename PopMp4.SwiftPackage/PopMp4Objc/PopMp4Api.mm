@@ -6,6 +6,7 @@
 #import "include/PopMp4Api.h"
 #import <Foundation/Foundation.h>
 #include <array>
+#include <iostream>
 
 
 //	https://stackoverflow.com/questions/43561531/how-to-convert-an-exception-into-an-nserror-object
@@ -185,12 +186,19 @@ DLL_EXPORT void PopMp4_FreeDecoder(int Instance)
 //	todo: can return a obj-c struct for swift to use directly instead of re-parsing in swift
 DLL_EXPORT NSString*__nonnull PopMp4_GetDecodeStateJson(int Instance)
 {
-	std::vector<char> JsonBuffer(100*1024);
+	std::vector<char> JsonBuffer(50*1024*1024);
 	PopMp4_GetDecoderState( Instance, JsonBuffer.data(), JsonBuffer.size() );
 	
+	auto Length = std::strlen(JsonBuffer.data());
+	if ( Length > 512*1024 )
+	{
+		auto LengthKb = Length / 1024;
+		std::cerr << "Warning; PopMp4_GetDecoderState json is " << LengthKb << "kb" << std::endl;
+	}
 	auto Json = [NSString stringWithUTF8String: JsonBuffer.data()];
-	auto JsonData = [NSData dataWithBytes:JsonBuffer.data() length:JsonBuffer.size()];
-	
+	//auto JsonData = [NSData dataWithBytes:JsonBuffer.data() length:JsonBuffer.size()];
+	auto JsonData = [NSData dataWithBytes:JsonBuffer.data() length:Length];
+
 	NSError* JsonParseError = nil;
 	auto Dictionary = [NSJSONSerialization JSONObjectWithData:JsonData options:NSJSONReadingMutableContainers error:&JsonParseError];
 	

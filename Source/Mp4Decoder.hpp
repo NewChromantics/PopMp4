@@ -5,8 +5,11 @@
 #include "../Source_TestApp/PopJson/PopJson.hpp"
 #include "Json11/json11.hpp"
 
-class Atom_t;
 
+//	in Mp4Parser.hpp
+class Atom_t;
+class Sample_t;
+class MediaHeader_t;
 
 
 //	class which uses the MP4 _parser_ against incoming data
@@ -161,7 +164,11 @@ protected:
 	void		OnError(std::string_view Error);
 	
 	void		ValidateAtom(Atom_t& Atom);
+	void		ProcessAtom(Atom_t& Atom,std::function<void(std::span<uint8_t>,size_t FilePosition)> ReadFileBytes);
 	
+	void		ProcessAtom_Moov(Atom_t& Atom,std::function<void(std::span<uint8_t>,size_t FilePosition)> ReadFileBytes);
+	void		OnExtractedMp4Samples(std::vector<Sample_t>& Samples,MediaHeader_t& Meta);
+
 protected:
 	std::shared_ptr<DataSource_t>	mInputSource;
 	
@@ -174,5 +181,6 @@ protected:
 	std::string					mError;
 	std::vector<uint32_t>		mExtractedMp4RootAtoms;	//	deprecationg for atom tree
 	//PopJson::Json_t				mAtomTree;
-	json11::Json::array			mAtomTree;	//	array of root atom objects 
+	json11::Json::array			mAtomTree;	//	array of root atom objects
+	std::vector<json11::Json::object>	mTracks;
 };
