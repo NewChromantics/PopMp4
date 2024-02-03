@@ -78,7 +78,7 @@ public struct Mp4Meta: Decodable
 	public let Instance : Int?	//	debugging
 	let Tracks : [TrackMeta]?
 
-	init(error:String)
+	public init(error:String)
 	{
 		Error = error
 		RootAtoms = nil
@@ -89,7 +89,7 @@ public struct Mp4Meta: Decodable
 		Tracks = nil
 	}
 	
-	init()
+	public init()
 	{
 		Error = nil
 		RootAtoms = nil
@@ -109,14 +109,14 @@ public struct Mp4Meta: Decodable
 	}
 }
 
-//	based on public class CondenseStream
-class PopMp4Instance
+
+public class PopMp4Instance
 {
 	var instanceWrapper : Mp4DecoderWrapper
 	//var instance : CInt = 0
 	var allocationError : String?
 
-	init(Filename:String)
+	public init(Filename:String)
 	{
 		do
 		{
@@ -134,7 +134,7 @@ class PopMp4Instance
 	}
 	
 	//	returns null when finished/eof
-	func WaitForMetaChange() async -> Mp4Meta
+	public func WaitForMetaChange() async -> Mp4Meta
 	{
 		if ( allocationError != nil )
 		{
@@ -160,72 +160,3 @@ class PopMp4Instance
 
 }
 
-
-public class Mp4ViewModel : ObservableObject
-{
-	public enum LoadingStatus : CustomStringConvertible
-	{
-		case Init, Loading, Finished, Error
-
-		public var description: String
-		{
-			switch self
-			{
-				case .Init: return "Init"
-				case .Loading: return "Loading"
-				case .Finished: return "Finished"
-				case .Error: return "Error"
-			}
-		}
-	}
-
-
-	@Published public var loadingStatus = LoadingStatus.Init
-	@Published public var lastMeta : Mp4Meta
-	public var error: String?	{	return lastMeta.Error;	}
-	var mp4Decoder : PopMp4Instance?
-	
-	
-	public init()
-	{
-		mp4Decoder = nil
-		lastMeta = Mp4Meta()
-		print("new Mp4ViewModel")
-	}
-	
-	@MainActor // as we change published variables, we need to run on the main thread
-	public func Load(filename: String) async throws
-	{
-		loadingStatus = LoadingStatus.Loading
-		mp4Decoder = PopMp4Instance(Filename: filename)
-		
-		while ( true )
-		{
-			try await Task.sleep(nanoseconds: 10_000_000)
-
-			//	todo: return struct with error, tree, other meta
-			var NewMeta = try await mp4Decoder!.WaitForMetaChange()
-			lastMeta = NewMeta
-			
-			/*
-			//	update data
-			if ( NewMeta.RootAtoms != nil )
-			{
-				atomTree = NewMeta.RootAtoms!
-			}
-			*/
-			if ( NewMeta.Error != nil )
-			{
-				loadingStatus = LoadingStatus.Error
-				return
-			}
-			
-			//	eof - if it's missing, we'll have to assume processing has failed (eg. just an error present)
-			if ( NewMeta.IsFinished ?? true )
-			{
-				break
-			}
-		}
-		loadingStatus = LoadingStatus.Finished
-	}
-}
