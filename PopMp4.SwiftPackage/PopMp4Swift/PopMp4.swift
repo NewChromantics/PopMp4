@@ -26,13 +26,43 @@ public struct AtomMeta: Decodable, Identifiable, Hashable
 	//	uid required to be iterable. todo: generate uid for tree so elements stay persistent
 	public let id = UUID()
 	
-	public let Fourcc: String
-	public let AtomSizeBytes : Int		//	header + content size
-	public let HeaderSizeBytes : Int
-	public let ContentSizeBytes : Int
-	public let ContentsFilePosition : Int
+	public var Fourcc: String=""
+	public var AtomSizeBytes : Int=0		//	header + content size
+	public var HeaderSizeBytes : Int=0
+	public var ContentSizeBytes : Int=0
+	public var ContentsFilePosition : Int=0
 
-	public let Children : [AtomMeta]?
+	public var Children : [AtomMeta]? = nil
+	
+	public init(fourcc:String)
+	{
+		Fourcc = fourcc
+	}
+	
+	
+	public func MatchFourcc(matchFourcc:String) -> Bool
+	{
+		return Fourcc.lowercased().contains(matchFourcc)
+	}
+	
+	public func ContainsFourcc(matchFourcc:String) -> Bool
+	{
+		if ( MatchFourcc(matchFourcc: matchFourcc) )
+		{
+			return true
+		}
+			
+		//	check children
+		for child in Children ?? []
+		{
+			if ( child.ContainsFourcc(matchFourcc:matchFourcc) )
+			{
+				return true
+			}
+		}
+		
+		return false
+	}
 }
 
 public struct SampleMeta : Decodable, Identifiable, Hashable
@@ -70,13 +100,13 @@ public struct TrackMeta : Decodable, Identifiable, Hashable
 public struct Mp4Meta: Decodable
 {
 	//	gr: using =nil seems to be breaking parsing
-	public let Error: String?
-	public let RootAtoms : [String]?	//	will be a tree
-	public let IsFinished: Bool?		//	decoder has finished - will be missing if just an error
-	public let Mp4BytesParsed : Int?
-	public let AtomTree : [AtomMeta]?
-	public let Instance : Int?	//	debugging
-	let Tracks : [TrackMeta]?
+	public var Error: String?
+	public var RootAtoms : [String]?	//	will be a tree
+	public var IsFinished: Bool?		//	decoder has finished - will be missing if just an error
+	public var Mp4BytesParsed : Int?
+	public var AtomTree : [AtomMeta]?
+	public var Instance : Int?	//	debugging
+	var Tracks : [TrackMeta]?
 
 	public init(error:String)
 	{
