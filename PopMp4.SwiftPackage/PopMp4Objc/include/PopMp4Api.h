@@ -22,9 +22,12 @@
 @property int instance;
 
 - (id)init;
+- (void)allocate:(NSError**)throwError __attribute__((swift_error(nonnull_error)));
 - (void)allocateWithFilename:(NSString*)Filename error:(NSError**)throwError __attribute__((swift_error(nonnull_error)));
 - (void)free;
 - (NSString*__nonnull)getDecoderStateJson:(NSError**)throwError __attribute__((swift_error(nonnull_error)));
+- (void)pushData:(NSData*__nonnull)data;
+- (void)pushEndOfFile;
 
 @end
 

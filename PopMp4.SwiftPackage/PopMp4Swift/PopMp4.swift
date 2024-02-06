@@ -88,13 +88,26 @@ public struct TrackMeta : Decodable, Identifiable, Hashable
 		lhs.id == rhs.id
 	}
 	
-	//	uid required to be iterable. todo: generate uid for tree so elements stay persistent
-	public let id = UUID()
+	//	only this keys are decoded by json
+	private enum CodingKeys: String, CodingKey
+	{
+		case Codec
+		case Samples
+		case SampleDecodeTimes
+	}
 	
-	public let Codec: String
-	//public let TrackNumber : Int		//	these start at 1 in mp4s!
-	public let Samples : [SampleMeta]?
-	public let SampleDecodeTimes : [Int]	//	to save json memory (structs are too big!) just a list of decode ms's for now
+	//	uid required to be iterable. todo: generate uid for tree so elements stay persistent
+	public var id = UUID()
+	
+	public var Codec: String=""
+	//public var TrackNumber : Int		//	these start at 1 in mp4s!
+	public var Samples : [SampleMeta]? = nil
+	public var SampleDecodeTimes : [Int]=[]	//	to save json memory (structs are too big!) just a list of decode ms's for now
+	
+	public init(codec:String)
+	{
+		Codec = codec
+	}
 }
 
 public struct Mp4Meta: Decodable
@@ -106,7 +119,7 @@ public struct Mp4Meta: Decodable
 	public var Mp4BytesParsed : Int?
 	public var AtomTree : [AtomMeta]?
 	public var Instance : Int?	//	debugging
-	var Tracks : [TrackMeta]?
+	public var Tracks : [TrackMeta]?
 
 	public init(error:String)
 	{
@@ -123,7 +136,7 @@ public struct Mp4Meta: Decodable
 	{
 		Error = nil
 		RootAtoms = nil
-		IsFinished = true
+		IsFinished = false
 		Mp4BytesParsed = nil
 		AtomTree = nil
 		Instance = nil
@@ -146,12 +159,12 @@ public class PopMp4Instance
 	//var instance : CInt = 0
 	var allocationError : String?
 
-	public init(Filename:String)
+	public init()
 	{
 		do
 		{
 			instanceWrapper = Mp4DecoderWrapper()
-			try instanceWrapper.allocate(withFilename: Filename)
+			try instanceWrapper.allocate()
 			//instance = PopMp4_AllocDecoder(Filename)
 			var Version = PopMp4_GetVersion()
 			//print("Allocated instance \(instance); PopMp4 version \(Version)")
@@ -163,6 +176,16 @@ public class PopMp4Instance
 		}
 	}
 	
+	public func PushData(data:Data)
+	{
+		instanceWrapper.push(data)
+	}
+	
+	public func PushEndOfFile()
+	{
+		instanceWrapper.pushEndOfFile()
+	}
+		
 	//	returns null when finished/eof
 	public func WaitForMetaChange() async -> Mp4Meta
 	{
@@ -176,7 +199,8 @@ public class PopMp4Instance
 		{
 			//var StateJson = PopMp4_GetDecodeStateJson(instance);
 			var StateJson = try instanceWrapper.getDecoderStateJson()
-			//print(StateJson)
+			print(StateJson)
+			
 			let StateJsonData = StateJson.data(using: .utf8)!
 			let Meta: Mp4Meta = try! JSONDecoder().decode(Mp4Meta.self, from: StateJsonData)
 			return Meta

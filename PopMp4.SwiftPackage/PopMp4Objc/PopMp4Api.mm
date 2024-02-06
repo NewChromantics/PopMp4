@@ -9,16 +9,6 @@
 #include <iostream>
 
 
-//	https://stackoverflow.com/questions/43561531/how-to-convert-an-exception-into-an-nserror-object
-NSError* GetError(NSException* exception)
-{
-	NSMutableDictionary *info = [exception.userInfo mutableCopy]?:[[NSMutableDictionary alloc] init];
-	[info addEntriesFromDictionary: [exception dictionaryWithValuesForKeys:@[@"ExceptionName", @"ExceptionReason", @"ExceptionCallStackReturnAddresses", @"ExceptionCallStackSymbols"] ] ];
-	[info addEntriesFromDictionary:@{NSLocalizedDescriptionKey: exception.name, NSLocalizedFailureReasonErrorKey:exception.reason }];
-	auto* error = [NSError errorWithDomain:@"myErrorDomain" code:-10 userInfo:info];
-	return error;
-}
-
 @implementation Mp4DecoderWrapper
 {
 	int instance;
@@ -39,6 +29,31 @@ NSError* GetError(NSException* exception)
 		@try
 		{
 			instance = PopMp4_AllocDecoder(Filename);
+		}
+		@catch (NSException* exception)
+		{
+			//*throwError = [NSError errorWithDomain:exception.reason code:0 userInfo:nil];
+			throw std::runtime_error(exception.reason.UTF8String);
+		}
+	}
+	catch (std::exception& e)
+	{
+		//*throwError = [NSError errorWithDomain:@"PopMp4 allocate" code:0 userInfo:nil];
+		NSString* error = [NSString stringWithUTF8String:e.what()];
+		*throwError = [NSError errorWithDomain:error code:0 userInfo:nil];
+		//*throwError = GetError(exception);
+	}
+}
+
+
+- (void)allocate:(NSError**)throwError __attribute__((swift_error(nonnull_error)))
+{
+	*throwError = nil;
+	try
+	{
+		@try
+		{
+			instance = PopMp4_AllocDecoder(nil);
 		}
 		@catch (NSException* exception)
 		{
@@ -81,6 +96,21 @@ NSError* GetError(NSException* exception)
 		NSString* error = [NSString stringWithUTF8String:e.what()];
 		*throwError = [NSError errorWithDomain:error code:0 userInfo:nil];
 	}
+}
+
+
+- (void)pushData:(NSData*__nonnull)data
+{
+	//uint8_t* DataAddress = reinterpret_cast<uint8_t*>(data.bytes);
+	uint8_t* DataAddress = (uint8_t*)data.bytes;
+	bool EndOfFile = false;
+	PopMp4_PushMp4Data( instance, DataAddress, data.length, EndOfFile);
+}
+
+- (void)pushEndOfFile
+{
+	bool EndOfFile = true;
+	PopMp4_PushMp4Data( instance, nullptr, 0, EndOfFile);
 }
 
 @end
@@ -153,10 +183,13 @@ DLL_EXPORT int PopMp4_AllocDecoder(NSString* Filename)
 {
 	std::vector<char> ErrorBuffer(100*1024);
 
-	NSDictionary* Options =
+	NSMutableDictionary* Options =
 	@{
-		@"Filename" : Filename,
+	//	@"Filename" : Filename,
 	};
+	if ( Filename != nullptr )
+		Options[@"Filename"] = Filename;
+	
 	NSData* OptionsJsonData = [NSJSONSerialization dataWithJSONObject:Options options:NSJSONWritingPrettyPrinted error:nil];
 	NSString* OptionsJsonString = [[NSString alloc] initWithData:OptionsJsonData encoding:NSUTF8StringEncoding];
 	const char* OptionsJsonStringC = [OptionsJsonString UTF8String];
