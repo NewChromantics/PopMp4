@@ -39,6 +39,22 @@ public struct AtomMeta: Decodable, Identifiable, Hashable
 		Fourcc = fourcc
 	}
 	
+	public func FindAtom(match:UUID) -> AtomMeta?
+	{
+		if ( id == match )
+		{
+			return self
+		}
+		for child in Children ?? []
+		{
+			var childMatch = child.FindAtom(match: match)
+			if ( childMatch != nil )
+			{
+				return childMatch
+			}
+		}
+		return nil
+	}
 	
 	public func MatchFourcc(matchFourcc:String) -> Bool
 	{
